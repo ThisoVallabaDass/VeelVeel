@@ -110,11 +110,10 @@ export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): Sc
       prompt: 'mic-too-quiet',
     };
   }
+  const activeEnergyMedian = median(active.map((frame) => frame.logEnergy));
   const variance =
-    active.reduce(
-      (sum, frame) => sum + (frame.logEnergy - median(active.map((f) => f.logEnergy))) ** 2,
-      0,
-    ) / active.length;
+    active.reduce((sum, frame) => sum + (frame.logEnergy - activeEnergyMedian) ** 2, 0) /
+    active.length;
   const spectralSpread = active.reduce((sum, frame) => sum + frame.centroidHz, 0) / active.length;
   const flatNoise =
     variance < 0.015 &&
