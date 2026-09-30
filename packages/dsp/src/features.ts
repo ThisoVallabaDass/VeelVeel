@@ -20,14 +20,19 @@ function autocorrelationPitch(
   minHz: number,
   maxHz: number,
 ) {
-  // Downsampling by two keeps YIN's difference function cheap while preserving
-  // the requested vocal range. FFT autocorrelation is O(n log n).
-  const signal = new Float64Array(256);
-  for (let i = 0; i < 256; i += 1)
-    signal[i] = (frame[i * 2] ?? 0) - (frame[Math.max(0, i * 2 - 1)] ?? 0);
-  const real = new Float64Array(512);
-  const imag = new Float64Array(512);
-  for (let i = 0; i < signal.length; i += 1) real[i] = signal[i]!;
+  // A 40 ms window contains enough cycles for a low adult voice. Averaging
+  // adjacent samples keeps the FFT inexpensive without removing the fundamental.
+  const signal = new Float64Array(Math.min(512, Math.ceil(frame.length / 2)));
+  let mean = 0;
+  for (let i = 0; i < signal.length; i += 1) {
+    signal[i] = ((frame[i * 2] ?? 0) + (frame[i * 2 + 1] ?? 0)) * 0.5;
+    mean += signal[i]!;
+  }
+  mean /= signal.length;
+  const real = new Float64Array(1024);
+  const imag = new Float64Array(1024);
+  for (let i = 0; i < signal.length; i += 1)
+    real[i] = (signal[i]! - mean) * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (signal.length - 1)));
   fft(real, imag);
   for (let i = 0; i < real.length; i += 1) {
     real[i] = real[i]! * real[i]! + imag[i]! * imag[i]!;
@@ -45,7 +50,7 @@ function autocorrelationPitch(
     differences[tau] = cumulative === 0 ? 1 : (differences[tau]! * tau) / cumulative;
   }
   let bestLag = 0;
-  let best = 0.22;
+  let best = 0.32;
   for (let tau = minLag; tau <= maxLag; tau += 1) {
     if (differences[tau]! < best) {
       best = differences[tau]!;
@@ -106,6 +111,7 @@ export function extractFeatures(
     throw new Error('Sample rate must be positive');
   const frameSize = Math.max(128, Math.round((sampleRate * config.frameMs) / 1000));
   const hopSize = Math.max(1, Math.round((sampleRate * config.hopMs) / 1000));
+  const pitchWindowSize = Math.max(frameSize, Math.round(sampleRate * 0.04));
   const fftSize = 512;
   const taper = hann(frameSize);
   const filters = makeMelFilters(sampleRate, fftSize, config.melBands);
@@ -137,10 +143,12 @@ export function extractFeatures(
       weighted += mag * ((bin * sampleRate) / fftSize);
       flux += Math.max(0, mag - previousMagnitude[bin]!);
     }
-    const pitch =
-      rms > 0.003
-        ? autocorrelationPitch(frame, sampleRate, config.minPitchHz, config.maxPitchHz)
-        : { pitchHz: 0, voicing: 0 };
+    const pitchWindow = new Float32Array(pitchWindowSize);
+    const pitchStart = Math.max(0, start - Math.round((pitchWindowSize - frameSize) / 2));
+    pitchWindow.set(audio.subarray(pitchStart, pitchStart + pitchWindowSize));
+    const pitch = rms > 0.003
+      ? autocorrelationPitch(pitchWindow, sampleRate, config.minPitchHz, config.maxPitchHz)
+      : { pitchHz: 0, voicing: 0 };
     frames.push({
       timeMs: (start * 1000) / sampleRate,
       logEnergy: Math.log10(Math.max(1e-7, rms)),

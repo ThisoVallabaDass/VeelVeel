@@ -14,3 +14,11 @@
 - **Use a CSS arena preview under `?e2e=1`.** Headless Chromium in this workspace stalls while software-rendering Three.js, so Playwright checks the game flow and themes through a static CI preview; normal play loads the Three.js scene.
 - **Copy the audio worklet into the generated pack public root.** Vite serves one public directory, and the pack directory already contains the generated audio and feature files.
 - **Synthesize a twelve-clip fallback when no source media is available.** Ignored media cannot be present in a fresh clone, but the local game should still start.
+- **Use a separate secure WebSocket port in local development.** The Vite WebSocket proxy stalled on this Windows setup; sharing Vite's generated certificate lets phones reach the relay directly over WSS.
+- **Let the host score room takes.** Phones upload one short PCM16 take through the relay, while the host uses the same DSP as Local mode and publishes scores. The relay stores only cumulative results in memory.
+- **Keep the existing 534 clips and accept mixed-language additions through an extra manifest.** The owner clarified that Tamil and English meme audio are welcome; no new third-party recordings were supplied or cleared for distribution.
+- **Improve pitch tracking with a 40 ms window and cap one-note matches on voiced melodies.** A synthetic one-note imitation previously scored 96 despite missing the melody.
+- **Extend the procedural arena before adding external avatar assets.** Articulated walking, mouth animation and audience bounce work without a model license or additional network downloads, while realistic rigged avatars remain a separate task.
+- **Expose judge sub-scores to every room player.** Total points alone made the voice comparison opaque on phones; snapshots preserve the last scored round for reconnects.
+- **Let the host select among detected LAN adapters.** A single automatically chosen address can point to a VPN that phones cannot reach.
+- **Offer take-turns room singing.** Simultaneous takes can pick up nearby voices; serial turns give groups a usable fallback without changing DSP or audio capture.

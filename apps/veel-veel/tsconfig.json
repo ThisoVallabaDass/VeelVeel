@@ -9,5 +9,5 @@
     "types": ["vite/client", "node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "references": [{ "path": "../../packages/dsp" }]
+  "references": [{ "path": "../../packages/dsp" }, { "path": "../../packages/protocol" }]
 }

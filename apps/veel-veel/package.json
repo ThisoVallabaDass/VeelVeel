@@ -3,16 +3,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "vite --config vite.config.ts",
+    "build": "vite build --config vite.config.ts",
+    "preview": "vite preview --config vite.config.ts"
   },
   "dependencies": {
-    "@veel-veel/dsp": "workspace:*",
     "@fontsource/dm-mono": "^5.2.6",
     "@fontsource/dm-sans": "^5.2.6",
     "@fontsource/noto-sans-tamil": "^5.2.6",
     "@fontsource/oswald": "^5.2.6",
+    "@veel-veel/dsp": "workspace:*",
+    "@veel-veel/protocol": "workspace:*",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.180.0",

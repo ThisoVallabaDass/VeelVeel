@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './ui/App.js';
+import RoomApp from './ui/RoomApp.js';
 import '@fontsource/dm-mono/400.css';
 import '@fontsource/dm-mono/500.css';
 import '@fontsource/dm-sans/400.css';
@@ -17,6 +18,6 @@ import './ui/sandbox.css';
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    {location.pathname === '/host' || location.pathname === '/join' || location.pathname.startsWith('/j/') ? <RoomApp /> : <App />}
   </React.StrictMode>,
 );

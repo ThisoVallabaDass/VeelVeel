@@ -1,13 +1,13 @@
 # Veel Veel
 
-Veel Veel is a browser voice-mimic party game. The current playable release covers M0–M2: the Tamil sound pack, a procedural festival/theatre arena, and five-round local Mic Drop with on-device microphone scoring.
+Veel Veel is a browser voice-mimic party game with a procedural festival/theatre arena, local Mic Drop, and room Mic Drop for up to five phone singers on a reachable network. Room hosts can choose simultaneous singing or turns; each singer sees rhythm, melody, energy and vibe scores.
 
 ```powershell
 pnpm install
 pnpm dev
 ```
 
-`pnpm dev` indexes the existing `data/` clips into the ignored `packs/` folder, then starts the HTTPS game server and prints its local and LAN addresses. When a new checkout has no local source clips, it creates a 12-clip synthesized demo pack. Open the local address, choose **Play Local**, connect and calibrate a microphone, then play. The local Tamil pack contains 534 unlabeled clip IDs; no manual labels are required. See [local setup](docs/LOCAL_DEV.md), [build scope](docs/SPEC.md), and [current status](docs/STATUS.md).
+`pnpm dev` indexes clips into the ignored `packs/` folder, then starts the HTTPS game on port 5173 and a secure room relay on port 8787. Open the local address for **Play Local**, **Host Room**, or **Join Room**. The current local Tamil pack contains 534 unlabeled clip IDs; a fresh checkout without local source media creates twelve synthesized demo clips. See [local setup](docs/LOCAL_DEV.md), [sound additions](docs/CLIPS.md), [room protocol](docs/PROTOCOL.md), [hosting](docs/DEPLOY.md), and [current status](docs/STATUS.md).
 
 Game checks: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`.
 

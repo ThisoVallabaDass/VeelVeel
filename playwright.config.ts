@@ -16,6 +16,7 @@ const baseURL = 'https://127.0.0.1:5173';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   reporter: 'list',
@@ -29,16 +30,25 @@ export default defineConfig({
     trace: 'retain-on-failure',
     launchOptions: {
       args: [
+        '--ignore-certificate-errors',
         '--use-fake-ui-for-media-stream',
         '--use-fake-device-for-media-stream',
         `--use-file-for-fake-audio-capture=${fakeMic}`,
       ],
     },
   },
-  webServer: {
-    command: 'pnpm --filter @veel-veel/client exec vite --host 127.0.0.1 --port 5173 --strictPort',
-    port: 5173,
-    reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
-  },
+  webServer: [
+    {
+      command: 'pnpm --filter @veel-veel/server dev',
+      port: 8787,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      command: 'pnpm --filter @veel-veel/client exec vite --config vite.config.ts --host 127.0.0.1 --port 5173 --strictPort',
+      port: 5173,
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+  ],
 });

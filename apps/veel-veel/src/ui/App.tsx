@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { MicCapture, playClip, playTake, scoreTake } from '../audio/mic.js';
+import { playCue } from '../audio/sfx.js';
+import { judgeVoicesEnabled, setJudgeVoicesEnabled, speakJudge } from '../audio/judge-voices.js';
 import type { RoastFx } from '../audio/mic.js';
 import type { AudioFeatures, ScoreBreakdown } from '@veel-veel/dsp';
 import { chaosCards } from '../content/chaos.js';
@@ -75,6 +77,7 @@ function ArenaPreview(props: {
   themeId: string;
   score?: number;
   active?: boolean;
+  level?: number;
   reducedMotion?: boolean;
   compact?: boolean;
 }) {
@@ -164,6 +167,7 @@ export default function App() {
   const [arenaDemoReaction, setArenaDemoReaction] = useState('NOD · RHYTHM LOCKED');
   const [arenaDemoActive, setArenaDemoActive] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [voiceJudges, setVoiceJudges] = useState(judgeVoicesEnabled);
   const recordingTimer = useRef<number | undefined>(undefined);
   const meterTimer = useRef<number | undefined>(undefined);
   const finishRecordingRef = useRef<() => void>(() => undefined);
@@ -398,6 +402,7 @@ export default function App() {
       return;
     }
     mic.start();
+    playCue('record');
     setSeconds(0);
     setTakeLevels([]);
     setRecording(true);
@@ -439,6 +444,12 @@ export default function App() {
       if (scored.total < lowestBot) scored = { ...scored, total: Math.max(0, scored.total - 10) };
     }
     setScore(scored);
+    playCue(scored.total >= 80 ? 'cheer' : scored.total < 30 ? 'boo' : 'gavel');
+    if (voiceJudges)
+      speakJudge(judges[round % judges.length]!.id as 'anna' | 'akka' | 'paati',
+        scored.prompt === 'mic-too-quiet'
+          ? 'We need more voice. Give it another big try!'
+          : roastLines[(round * 3 + scored.total) % roastLines.length]!);
     addScore(scored.total);
     if (scored.prompt)
       setToast(
@@ -451,11 +462,13 @@ export default function App() {
   finishRecordingRef.current = finishRecording;
 
   function continueRound() {
+    playCue('next');
     setToast('');
     nextRound();
   }
 
   function beginGame() {
+    playCue('start');
     setGoldenBuzzer(false);
     startGame();
   }
@@ -598,13 +611,13 @@ export default function App() {
         <>
           {renderTop(
             <span className="pack-pill">
-              <i /> TAMIL PACK · {pack?.clips.length ?? '···'} SOUNDS
+              <i /> {pack?.language === 'mixed' ? 'MEME MIX' : 'TAMIL PACK'} · {pack?.clips.length ?? '···'} SOUNDS
             </span>,
           )}
           <section className="home-hero">
             <div className="home-copy">
               <div className="season-tag">
-                <Stars /> TAMIL MEME NIGHT <Stars />
+                <Stars /> {pack?.language === 'mixed' ? 'TAMIL + ENGLISH MEME NIGHT' : 'TAMIL MEME NIGHT'} <Stars />
               </div>
               <h1>
                 THE BIG
@@ -652,15 +665,15 @@ export default function App() {
           <section className="home-actions">
             <button
               className="mode-link"
-              onClick={() => setToast('Room play unlocks after the local party foundation.')}
+              onClick={() => { window.location.href = '/host'; }}
             >
-              ▣ &nbsp; HOST ROOM <small>SOON</small>
+              ▣ &nbsp; HOST ROOM <small>UP TO 5 PHONES</small>
             </button>
             <button
               className="mode-link"
-              onClick={() => setToast('Room play unlocks after the local party foundation.')}
+              onClick={() => { window.location.href = '/join'; }}
             >
-              ⌕ &nbsp; JOIN ROOM <small>SOON</small>
+              ⌕ &nbsp; JOIN ROOM <small>USE A CODE</small>
             </button>
             <button
               className="mode-link"
@@ -970,7 +983,7 @@ export default function App() {
               <div className="pack-select">
                 <span>♪</span>
                 <p>
-                  <b>TAMIL MEMES · ta</b>
+                  <b>{pack?.language === 'mixed' ? 'TAMIL + ENGLISH MEMES' : 'TAMIL MEMES · ta'}</b>
                   <small>{pack?.region} · UNLABELLED ID SET</small>
                 </p>
                 <span className="tiny-check">✓</span>
@@ -1031,6 +1044,7 @@ export default function App() {
                 themeId={theme}
                 score={score?.total ?? 68}
                 active={recording}
+                level={meter}
                 reducedMotion={reducedMotion}
               />
               <div className="judge-rail">
@@ -1357,6 +1371,16 @@ export default function App() {
                 <b>REDUCED MOTION</b>
                 <small>Keep the show calm and comfy.</small>
                 <i>{reducedMotion ? 'ON ✓' : 'OFF'}</i>
+              </button>
+              <button onClick={() => {
+                const next = !voiceJudges;
+                setVoiceJudges(next);
+                setJudgeVoicesEnabled(next);
+              }}>
+                <span>♬</span>
+                <b>JUDGE VOICES</b>
+                <small>Let Anna, Akka and Paati speak their verdicts.</small>
+                <i>{voiceJudges ? 'ON ✓' : 'OFF'}</i>
               </button>
               <div>
                 <span>♪</span>

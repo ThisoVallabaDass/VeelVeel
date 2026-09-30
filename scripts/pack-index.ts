@@ -15,6 +15,7 @@ type CatalogClip = {
   start_s?: number;
   end_s?: number;
   flags?: string[];
+  language?: 'ta' | 'en';
 };
 const root = process.cwd();
 const args = process.argv.slice(2);
@@ -24,6 +25,7 @@ const option = (name: string, fallback: string) => {
 };
 const sourceRoot = path.resolve(root, option('--source', 'data/clips/wav'));
 const manifestPath = path.resolve(root, option('--manifest', 'data/catalog/clips.jsonl'));
+const extraManifestPath = path.resolve(root, option('--extra-manifest', 'data/catalog/extra-clips.jsonl'));
 const packId = option('--id', 'tamil-meme');
 const outputRoot = path.resolve(root, 'packs', packId);
 
@@ -116,7 +118,11 @@ const catalogText = await readFile(manifestPath, 'utf8').catch((error: unknown) 
   if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
   throw error;
 });
-const manifest = catalogText
+const extraCatalogText = await readFile(extraManifestPath, 'utf8').catch((error: unknown) => {
+  if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
+  throw error;
+});
+const manifest = (catalogText + '\n' + extraCatalogText)
   .split(/\r?\n/)
   .filter(Boolean)
   .map((line) => JSON.parse(line) as CatalogClip);
@@ -125,8 +131,11 @@ let skipped = 0;
 for (let index = 0; index < manifest.length; index += 1) {
   const item = manifest[index]!;
   const relative = item.wav_path.replace(/^data[\\/]clips[\\/]wav[\\/]/, '');
-  const inputPath = path.join(sourceRoot, relative);
+  const inputPath = path.resolve(sourceRoot, relative);
   try {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(item.clip_id)) throw new Error('Invalid clip ID');
+    if (!inputPath.startsWith(sourceRoot + path.sep)) throw new Error('Clip path leaves source folder');
+    if (item.language && !['ta', 'en'].includes(item.language)) throw new Error('Unsupported language');
     const input = readWav(await readFile(inputPath));
     const trimmed = trimSilence(resampleMono(input.mono, input.sampleRate, 22_050), 22_050).samples;
     const normalized = normalizeLoudness(trimmed, -18, -1).samples;
@@ -144,7 +153,7 @@ for (let index = 0; index < manifest.length; index += 1) {
       features: `features/${item.clip_id}.json`,
       title: '',
       label: '',
-      language: 'ta',
+      language: item.language ?? 'ta',
       source: item.source_url ?? '',
       originalTitle: item.video_title ?? '',
       difficulty: difficulty(features),
@@ -215,9 +224,9 @@ ranked.forEach(({ index }, position) => {
 const pack = {
   schemaVersion: 1,
   id: packId,
-  title: usingDemo ? 'Synthetic Demo Sounds' : 'Tamil Meme Clips',
-  language: 'ta',
-  region: 'Tamil Nadu',
+  title: usingDemo ? 'Synthetic Demo Sounds' : clips.some((clip) => clip.language === 'en') ? 'Tamil + English Meme Mix' : 'Tamil Meme Clips',
+  language: clips.some((clip) => clip.language === 'en') ? 'mixed' : 'ta',
+  region: clips.some((clip) => clip.language === 'en') ? 'Tamil + English' : 'Tamil Nadu',
   theme: 'festival',
   sampleRate: 22_050,
   createdAt: new Date().toISOString(),

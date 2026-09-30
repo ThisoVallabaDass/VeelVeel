@@ -23,6 +23,20 @@ function phrase(scale = 1, duration = 2.2) {
 const analyze = (audio: Float32Array) => extractFeatures(audio, rate);
 
 describe('audio features and party scoring', () => {
+  it('tracks a voiced melodic phrase and discounts a one-note imitation', () => {
+    const original = phrase();
+    const oneNote = new Float32Array(original.length);
+    for (let i = 0; i < oneNote.length; i += 1) {
+      const t = i / rate;
+      const within = (t % 0.24) / 0.24;
+      const envelope = within < 0.78 ? Math.min(1, within * 12) * Math.min(1, (0.78 - within) * 9) : 0;
+      oneNote[i] = 0.42 * envelope * (Math.sin(2 * Math.PI * 220 * t) + 0.22 * Math.sin(2 * Math.PI * 440 * t));
+    }
+    const reference = analyze(original);
+    const flat = analyze(oneNote);
+    expect(reference.frames.filter((frame) => frame.voicing > 0.45).length / reference.frames.length).toBeGreaterThan(0.3);
+    expect(scoreFeatures(reference, flat).total).toBeLessThan(85);
+  });
   it('scores an identical take at 95 or higher', () => {
     const reference = analyze(phrase());
     expect(scoreFeatures(reference, reference).total).toBeGreaterThanOrEqual(95);

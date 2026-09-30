@@ -187,8 +187,20 @@ export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): Sc
       vibe * SCORING_CONFIG.weights.vibe,
   );
   const partyLift = 100 * Math.pow(weighted / 100, SCORING_CONFIG.partyCurveExponent);
+  // A single held note can match the rhythm and timbre of a changing melody.
+  // Apply this ceiling only when both signals contain enough reliable pitch;
+  // noisy spoken memes should still be judged on rhythm, energy and tone.
+  let pitchCeiling = 100;
+  if (refPitches.length >= ref.length * 0.3 && takePitches.length >= got.length * 0.3) {
+    const refMedian = median(refPitches.map((frame) => Math.log2(frame.pitchHz)));
+    const takeMedian = median(takePitches.map((frame) => Math.log2(frame.pitchHz)));
+    const refMotion = median(refPitches.map((frame) => Math.abs(Math.log2(frame.pitchHz) - refMedian)));
+    const takeMotion = median(takePitches.map((frame) => Math.abs(Math.log2(frame.pitchHz) - takeMedian)));
+    if (refMotion > 0.055 && takeMotion / refMotion < 0.45)
+      pitchCeiling = clamp(65 + (takeMotion / refMotion) * 35);
+  }
   return {
-    total: Math.round(partyLift * (0.88 + (0.12 * commitment) / 100)),
+    total: Math.round(Math.min(pitchCeiling, partyLift * (0.88 + (0.12 * commitment) / 100))),
     rhythm: Math.round(rhythm),
     melody: Math.round(melody),
     energy: Math.round(energySimilarity),

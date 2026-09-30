@@ -6,6 +6,8 @@ interface Props {
   themeId: string;
   score?: number;
   active?: boolean;
+  level?: number;
+  activeSinger?: number;
   reducedMotion?: boolean;
   compact?: boolean;
 }
@@ -13,10 +15,14 @@ export default function ArenaCanvas({
   themeId,
   score = 72,
   active = false,
+  level = 0,
+  activeSinger = 0,
   reducedMotion = false,
   compact = false,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
+  const live = useRef({ score, active, level, activeSinger });
+  live.current = { score, active, level, activeSinger };
   useEffect(() => {
     const element = host.current;
     if (!element) return;
@@ -179,20 +185,27 @@ export default function ArenaCanvas({
       }
     }
     // Kolam-inspired interlaced rings are abstract stage geometry, not religious iconography.
+    const rings: THREE.Mesh[] = [];
     for (let ring = 0; ring < 5; ring += 1) {
       const line = new THREE.Mesh(
         new THREE.TorusGeometry(1.25 + ring * 0.42, 0.035, 4, 80),
         new THREE.MeshStandardMaterial({
-          color: ring < score / 22 ? theme.accent : '#574977',
-          emissive: ring < score / 22 ? theme.accent : '#201633',
+          color: ring < live.current.score / 22 ? theme.accent : '#574977',
+          emissive: ring < live.current.score / 22 ? theme.accent : '#201633',
           emissiveIntensity: 0.3,
         }),
       );
       line.rotation.x = Math.PI / 2;
       line.position.set(0, 0.07 + ring * 0.008, -0.1);
       scene.add(line);
+      rings.push(line);
     }
     const performers: THREE.Group[] = [];
+    const rigs: Array<{
+      leftArm: THREE.Group; rightArm: THREE.Group; leftLeg: THREE.Group;
+      rightLeg: THREE.Group; mouth: THREE.Mesh; browLeft: THREE.Mesh;
+      browRight: THREE.Mesh; head: THREE.Mesh; homeX: number; homeZ: number;
+    }> = [];
     for (let i = 0; i < 5; i += 1) {
       const angle = Math.PI * (0.78 + (0.44 * i) / 4);
       const x = Math.cos(angle) * 5.8;
@@ -202,26 +215,31 @@ export default function ArenaCanvas({
       scene.add(group);
       performers.push(group);
       const token = playerTokens[i]!;
+      const skin = ['#a96748', '#704530', '#d89b70', '#b77250', '#57382e'][i]!;
+      const outfit = ['#f84b8c', '#15afab', '#ffc556', '#8b78d6', '#3c8fbe'][i]!;
       const body = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.52, 1.05, 3, 8),
+        new THREE.CylinderGeometry(0.44, 0.56, 1.15, 12),
         new THREE.MeshStandardMaterial({
-          color: ['#9e503e', '#734434', '#cf8b5a', '#bb7352', '#52372f'][i]!,
-          roughness: 0.9,
+          color: outfit,
+          roughness: 0.73,
         }),
       );
-      body.position.y = 1.22;
+      body.position.y = 1.42;
       group.add(body);
       const bodyOutline = new THREE.Mesh(
         body.geometry,
         new THREE.MeshBasicMaterial({ color: '#100d20', side: THREE.BackSide }),
       );
       bodyOutline.position.copy(body.position);
-      bodyOutline.scale.setScalar(1.055);
+      bodyOutline.scale.setScalar(1.06);
       group.add(bodyOutline);
+      cylinder(0.17, 0.19, 0.35, skin, 0, 2.04, 0, group);
+      box(1.1, 0.16, 0.66, i % 2 ? '#281d43' : '#f6ca6e', 0, 0.9, 0, group);
       const head = new THREE.Mesh(
         new THREE.SphereGeometry(0.56, 16, 12),
         new THREE.MeshStandardMaterial({
-          color: ['#9e503e', '#734434', '#cf8b5a', '#bb7352', '#52372f'][i]!,
+          color: skin,
+          roughness: 0.91,
         }),
       );
       head.scale.set(0.92, 1.08, 0.87);
@@ -240,8 +258,45 @@ export default function ArenaCanvas({
       );
       hair.position.set(0, 2.42, -0.04);
       group.add(hair);
-      box(0.24, 0.13, 0.06, '#fff4dc', -0.17, 2.28, 0.47, group);
-      box(0.24, 0.13, 0.06, '#fff4dc', 0.17, 2.28, 0.47, group);
+      if (i === 1 || i === 4) {
+        const bun = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 9),
+          new THREE.MeshStandardMaterial({ color: '#17111e' }));
+        bun.position.set(0.3, 2.72, -0.29);
+        group.add(bun);
+      }
+      const browLeft = box(0.27, 0.045, 0.07, '#25151b', -0.18, 2.42, 0.47, group);
+      const browRight = box(0.27, 0.045, 0.07, '#25151b', 0.18, 2.42, 0.47, group);
+      box(0.19, 0.10, 0.07, '#fff4dc', -0.18, 2.29, 0.49, group);
+      box(0.19, 0.10, 0.07, '#fff4dc', 0.18, 2.29, 0.49, group);
+      const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8),
+        new THREE.MeshStandardMaterial({ color: '#421e2a', roughness: 0.8 }));
+      mouth.position.set(0, 2.04, 0.51);
+      mouth.scale.set(0.9, 0.25, 0.3);
+      group.add(mouth);
+      if (i === 2 || i === 4) {
+        box(0.3, 0.045, 0.07, '#241519', 0, 2.16, 0.53, group);
+      }
+      const leftArm = new THREE.Group();
+      leftArm.position.set(-0.57, 1.86, 0);
+      group.add(leftArm);
+      cylinder(0.14, 0.12, 0.77, outfit, 0, -0.37, 0, leftArm);
+      cylinder(0.11, 0.11, 0.28, skin, 0, -0.83, 0.07, leftArm);
+      const rightArm = new THREE.Group();
+      rightArm.position.set(0.57, 1.86, 0);
+      group.add(rightArm);
+      cylinder(0.14, 0.12, 0.77, outfit, 0, -0.37, 0, rightArm);
+      cylinder(0.11, 0.11, 0.28, skin, 0, -0.83, 0.07, rightArm);
+      const leftLeg = new THREE.Group();
+      leftLeg.position.set(-0.29, 0.91, 0);
+      group.add(leftLeg);
+      cylinder(0.2, 0.14, 0.66, '#29253c', 0, -0.31, 0, leftLeg);
+      box(0.32, 0.17, 0.48, '#131421', 0, -0.68, 0.17, leftLeg);
+      const rightLeg = new THREE.Group();
+      rightLeg.position.set(0.29, 0.91, 0);
+      group.add(rightLeg);
+      cylinder(0.2, 0.14, 0.66, '#29253c', 0, -0.31, 0, rightLeg);
+      box(0.32, 0.17, 0.48, '#131421', 0, -0.68, 0.17, rightLeg);
+      rigs.push({ leftArm, rightArm, leftLeg, rightLeg, mouth, browLeft, browRight, head, homeX: x, homeZ: z });
       const badge = new THREE.Mesh(
         tokenGeometry(token.shape),
         new THREE.MeshStandardMaterial({
@@ -312,6 +367,7 @@ export default function ArenaCanvas({
     let stopped = false;
     let lastFrameTime = 0;
     let slowFrames = 0;
+    let lastStageScore = Number.NaN;
     const resize = () => {
       const width = Math.max(1, element.clientWidth);
       const height = Math.max(1, element.clientHeight);
@@ -332,15 +388,62 @@ export default function ArenaCanvas({
         }
       }
       lastFrameTime = now;
+      const { score: stageScore, active: stageActive, level: stageLevel, activeSinger: leadSinger } = live.current;
+      if (stageScore !== lastStageScore) {
+        rings.forEach((ring, index) => {
+          const material = ring.material as THREE.MeshStandardMaterial;
+          const lit = index < stageScore / 22;
+          material.color.set(lit ? theme.accent : '#574977');
+          material.emissive.set(lit ? theme.accent : '#201633');
+        });
+        lastStageScore = stageScore;
+      }
       if (!staticFrame) {
         const t = frame * 0.018;
         performers.forEach((performer, index) => {
-          performer.position.y = Math.sin(t * 2 + index) * (active && index === 0 ? 0.12 : 0.045);
-          performer.rotation.z = Math.sin(t + index) * 0.025;
+          const rig = rigs[index]!;
+          const lead = index === leadSinger;
+          const singing = stageActive && lead;
+          const dance = stageScore >= 90 && !stageActive;
+          const flop = stageScore < 40 && !stageActive;
+          const pace = singing ? 8.2 : dance ? 5.8 : 2.4;
+          const stride = Math.sin(t * pace + index * 0.5);
+          const step = singing ? 0.36 : dance ? 0.27 : 0.08;
+          rig.leftLeg.rotation.x = stride * step;
+          rig.rightLeg.rotation.x = -stride * step;
+          rig.leftArm.rotation.x = -stride * (singing ? 0.54 : 0.23);
+          rig.rightArm.rotation.x = singing ? -1.1 + Math.sin(t * 12) * 0.18 : stride * 0.23;
+          rig.leftArm.rotation.z = dance ? -0.8 + Math.sin(t * 10) * 0.32 : 0.08;
+          rig.rightArm.rotation.z = dance ? 0.8 - Math.sin(t * 10) * 0.32 : -0.08;
+          rig.mouth.scale.y = singing ? 0.4 + Math.min(1, stageLevel * 2.5) * 2.3 + Math.abs(Math.sin(t * 14)) * 0.4 : 0.25;
+          rig.browLeft.position.y = 2.42 + (singing ? Math.min(0.1, stageLevel * 0.3) : 0);
+          rig.browRight.position.y = rig.browLeft.position.y;
+          rig.head.rotation.z = flop && lead ? -0.23 : singing ? Math.sin(t * 4) * 0.065 : 0;
+          const centerX = lead && stageActive ? rig.homeX * 0.55 : rig.homeX;
+          const centerZ = lead && stageActive ? rig.homeZ + 0.8 : rig.homeZ;
+          performer.position.x += (centerX - performer.position.x) * 0.08;
+          performer.position.z += (centerZ - performer.position.z) * 0.08;
+          performer.position.y = Math.abs(stride) * (singing ? 0.10 : dance ? 0.08 : 0.025);
+          performer.rotation.z = flop && lead ? -0.22 : Math.sin(t + index) * 0.025;
         });
+        if (frame % 2 === 0) {
+          const energy = Math.min(1, Math.max(stageScore / 100, stageLevel));
+          for (let index = 0; index < fans.count; index += 1) {
+            const column = index % 30;
+            const row = Math.floor(index / 30);
+            dummy.position.set((column - 14.5) * 0.78,
+              0.28 + (index % 5) * 0.09 + Math.max(0, Math.sin(t * (3 + energy * 5) + index * 1.73)) * 0.24 * energy,
+              -8.2 - row * 1.1);
+            dummy.scale.setScalar(0.75 + (index % 4) * 0.12);
+            dummy.updateMatrix();
+            fans.setMatrixAt(index, dummy.matrix);
+          }
+          fans.instanceMatrix.needsUpdate = true;
+        }
         pink.intensity = 29 + Math.sin(t * 1.4) * 5;
         gold.intensity = 27 + Math.cos(t) * 4;
         camera.position.x = Math.sin(t * 0.14) * 0.2;
+        camera.position.z += ((stageActive ? 17.6 : 19) - camera.position.z) * 0.035;
         if (frame % 4 === 0) {
           confetti.rotation.y += 0.008;
           confetti.position.y = Math.sin(t) * 0.12;
@@ -366,7 +469,7 @@ export default function ArenaCanvas({
         }
       });
     };
-  }, [themeId, score, active, reducedMotion]);
+  }, [themeId, reducedMotion]);
   return (
     <div
       ref={host}
