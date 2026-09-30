@@ -1,0 +1,14 @@
+{
+  "name": "@veel-veel/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -b",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@veel-veel/protocol": "workspace:*",
+    "ws": "^8.18.3"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "veel-veel",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "pnpm pack:index && pnpm --filter @veel-veel/client dev",
+    "dev:host": "pnpm pack:index && pnpm --filter @veel-veel/client dev --host 0.0.0.0",
+    "pack:index": "tsx scripts/pack-index.ts",
+    "test": "pnpm pack:index && vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "tsc --build",
+    "build": "pnpm pack:index && pnpm --filter @veel-veel/client build && pnpm --filter @veel-veel/server build",
+    "e2e": "pnpm pack:index && playwright test",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.38.0",
+    "@playwright/test": "^1.56.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "@vitejs/plugin-basic-ssl": "^2.1.4",
+    "@types/node": "^24.8.0",
+    "@types/qrcode-terminal": "^0.12.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.180.0",
+    "@types/ws": "^8.18.1",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.4.0",
+    "prettier": "^3.6.2",
+    "qrcode-terminal": "^0.12.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vite": "^7.1.12",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,25 @@
+analysis:
+  sample_rate: 44100
+  frame_ms: 20
+  hop_ms: 10
+segmentation:
+  noise_percentile: 10
+  noise_floor_min_db: -70
+  noise_floor_max_db: -40
+  open_offset_db: 10
+  close_offset_db: 7
+  min_silence_ms: 400
+  merge_gap_ms: 250
+  min_clip_ms: 300
+  max_clip_ms: 10000
+  retry_silence_ms: [150, 80]
+  pad_head_ms: 120
+  pad_tail_ms: 200
+  fade_ms: 8
+  low_dynamic_range_db: 12
+  valley_prominence_db: 6
+  valley_min_distance_ms: 400
+  peak_reject_db: -40
+  normalize_peak_db: -1
+  ogg_quality: 5
+overrides: {}
