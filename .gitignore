@@ -11,3 +11,6 @@ coverage/
 packs/
 .env*
 *.tsbuildinfo
+vite.config.js
+vite.config.js.map
+vite.config.d.ts

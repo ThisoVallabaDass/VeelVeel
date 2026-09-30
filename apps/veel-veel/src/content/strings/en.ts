@@ -1,0 +1,16 @@
+export const en = {
+  appName: 'Veel Veel',
+  playLocal: 'PLAY LOCAL',
+  hostRoom: 'HOST ROOM',
+  joinRoom: 'JOIN ROOM',
+  dailyStage: 'DAILY STAGE',
+  settings: 'SETTINGS',
+  micCheck: 'MIC CHECK',
+  sayTest: 'Say “Veel Veel!”',
+  micTip: 'Headphones make the beat feel bigger. Your mic audio stays on this device.',
+  ready: 'READY UP',
+  listen: 'LISTEN CLOSE',
+  perform: 'YOUR TURN',
+  reveal: 'THE JUDGES HAVE SPOKEN',
+  onceMore: 'ONCE MORE!',
+} as const;
