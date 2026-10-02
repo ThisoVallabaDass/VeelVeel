@@ -22,3 +22,5 @@
 - **Expose judge sub-scores to every room player.** Total points alone made the voice comparison opaque on phones; snapshots preserve the last scored round for reconnects.
 - **Let the host select among detected LAN adapters.** A single automatically chosen address can point to a VPN that phones cannot reach.
 - **Offer take-turns room singing.** Simultaneous takes can pick up nearby voices; serial turns give groups a usable fallback without changing DSP or audio capture.
+- **Let the host occupy one optional singer seat.** A host-only room could not start because there was no ready singer; the host can now connect a mic and play solo while screen-only hosting remains available.
+- **Score the host take in the host browser.** Host mic audio does not need to pass through the relay to reach the same scoring engine.

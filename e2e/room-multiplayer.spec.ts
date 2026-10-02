@@ -4,19 +4,20 @@ import path from 'node:path';
 
 const screenshots = path.resolve(process.cwd(), 'docs/screens');
 mkdirSync(screenshots, { recursive: true });
+const saveDocumentationScreens = !process.env.VEEL_E2E_BASE_URL;
 
 test('host and two phones complete a scored room round', async ({ browser }) => {
   const host = await browser.newPage({ ignoreHTTPSErrors: true });
   const singerOne = await browser.newPage({ ignoreHTTPSErrors: true, permissions: ['microphone'], viewport: { width: 390, height: 844 } });
   const singerTwo = await browser.newPage({ ignoreHTTPSErrors: true, permissions: ['microphone'], viewport: { width: 390, height: 844 } });
-  await host.goto('https://127.0.0.1:5173/host');
+  await host.goto('/host');
   await host.getByRole('button', { name: /CREATE ROOM/ }).click();
   const code = (await host.locator('.room-code-bar strong').textContent())!.trim();
   expect(code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/);
   await expect(host.getByRole('img', { name: `Scan to join room ${code}` })).toBeVisible();
 
   for (const [page, name] of [[singerOne, 'Anbu'], [singerTwo, 'Maya']] as const) {
-    await page.goto(`https://127.0.0.1:5173/j/${code}`);
+    await page.goto(`/j/${code}`);
     await page.getByPlaceholder('Your name').fill(name);
     await page.getByRole('button', { name: /JOIN ROOM/ }).click();
     await expect(page.getByText('THE LINEUP.')).toBeVisible();
@@ -24,8 +25,10 @@ test('host and two phones complete a scored room round', async ({ browser }) => 
     await expect(page.getByRole('button', { name: /MIC CONNECTED/ })).toBeVisible();
     await page.getByRole('button', { name: /I AM READY/ }).click();
   }
-  await host.screenshot({ path: path.join(screenshots, '09-room-host.png'), fullPage: true });
-  await singerOne.screenshot({ path: path.join(screenshots, '10-room-phone.png'), fullPage: true });
+  if (saveDocumentationScreens) {
+    await host.screenshot({ path: path.join(screenshots, '09-room-host.png'), fullPage: true });
+    await singerOne.screenshot({ path: path.join(screenshots, '10-room-phone.png'), fullPage: true });
+  }
   await singerOne.reload();
   await expect(singerOne.getByRole('button', { name: /CONNECT MICROPHONE/ })).toBeVisible({ timeout: 10_000 });
   await singerOne.getByRole('button', { name: /CONNECT MICROPHONE/ }).click();
@@ -47,7 +50,8 @@ test('host and two phones complete a scored room round', async ({ browser }) => 
   await expect(singerOne.locator('.room-judges')).toHaveCount(2);
   await expect(singerOne.locator('.room-judges').first()).toContainText('RHYTHM');
   await expect(singerOne.locator('.room-judges').first()).toContainText('MELODY');
-  await singerOne.screenshot({ path: path.join(screenshots, '11-room-judges.png'), fullPage: true });
+  if (saveDocumentationScreens)
+    await singerOne.screenshot({ path: path.join(screenshots, '11-room-judges.png'), fullPage: true });
   await host.close();
   await singerOne.close();
   await singerTwo.close();
@@ -57,11 +61,11 @@ test('take-turns mode moves the microphone to the next singer after scoring', as
   const host = await browser.newPage({ ignoreHTTPSErrors: true });
   const first = await browser.newPage({ ignoreHTTPSErrors: true, permissions: ['microphone'] });
   const second = await browser.newPage({ ignoreHTTPSErrors: true, permissions: ['microphone'] });
-  await host.goto('https://127.0.0.1:5173/host');
+  await host.goto('/host');
   await host.getByRole('button', { name: /CREATE ROOM/ }).click();
   const code = (await host.locator('.room-code-bar strong').textContent())!.trim();
   for (const [page, name] of [[first, 'Anbu'], [second, 'Maya']] as const) {
-    await page.goto(`https://127.0.0.1:5173/j/${code}`);
+    await page.goto(`/j/${code}`);
     await page.getByPlaceholder('Your name').fill(name);
     await page.getByRole('button', { name: /JOIN ROOM/ }).click();
     await page.getByRole('button', { name: /CONNECT MICROPHONE/ }).click();
@@ -80,4 +84,48 @@ test('take-turns mode moves the microphone to the next singer after scoring', as
   await host.close();
   await first.close();
   await second.close();
+});
+
+test('host joins as a singer and starts a solo room', async ({ browser }) => {
+  const host = await browser.newPage({ ignoreHTTPSErrors: true, permissions: ['microphone'] });
+  await host.goto('/host');
+  await host.getByRole('button', { name: /CREATE ROOM/ }).click();
+  await expect(host.getByRole('button', { name: /START THE SHOW/ })).toBeDisabled();
+  await host.getByRole('button', { name: /JOIN AS SINGER/ }).click();
+  await expect(host.getByText('YOU ARE IN THE LINEUP')).toBeVisible();
+  await host.reload();
+  await expect(host.getByText('YOU ARE IN THE LINEUP')).toBeVisible();
+  await host.getByRole('button', { name: /CONNECT MICROPHONE/ }).click();
+  await expect(host.getByRole('button', { name: /MIC CONNECTED/ })).toBeVisible();
+  await host.getByRole('button', { name: /I AM READY/ }).click();
+  await expect(host.getByRole('button', { name: /START THE SHOW/ })).toBeEnabled();
+  if (saveDocumentationScreens)
+    await host.screenshot({ path: path.join(screenshots, '12-room-host-singer.png'), fullPage: true });
+  await host.getByRole('button', { name: /START THE SHOW/ }).click();
+  await expect(host.locator('.room-stage .arena-canvas')).toBeVisible();
+  await expect.poll(() => host.locator('.room-stage').evaluate((stage) => {
+    const bounds = stage.getBoundingClientRect();
+    const canvas = stage.querySelector('.arena-canvas')?.getBoundingClientRect();
+    return Boolean(canvas && Math.abs(canvas.top - bounds.top) < 3 && Math.abs(canvas.left - bounds.left) < 3);
+  })).toBe(true);
+  await host.getByRole('button', { name: /START SINGING/ }).click();
+  await expect(host.getByRole('button', { name: /TAKE SENT/ })).toBeVisible({ timeout: 25_000 });
+  await expect(host.locator('.room-player small')).toContainText(/\d+ PTS/);
+  await host.getByRole('button', { name: /REVEAL SCORES/ }).click();
+  await expect(host.locator('.room-judges')).toHaveCount(1);
+  if (saveDocumentationScreens)
+    await host.screenshot({ path: path.join(screenshots, '13-room-host-score.png'), fullPage: true });
+  await host.close();
+});
+
+test('expired host room can be replaced with a new room', async ({ browser }) => {
+  const host = await browser.newPage({ ignoreHTTPSErrors: true });
+  await host.addInitScript(() => sessionStorage.setItem('veel-room-host',
+    JSON.stringify({ code: 'ZZZZ', token: 'x'.repeat(32) })));
+  await host.goto('/host');
+  await expect(host.getByRole('button', { name: /CREATE ROOM/ })).toBeEnabled();
+  await expect(host.getByRole('button', { name: /RECONNECT TO ROOM/ })).toHaveCount(0);
+  await host.getByRole('button', { name: /CREATE ROOM/ }).click();
+  await expect(host.locator('.room-code-bar strong')).toBeVisible();
+  await host.close();
 });

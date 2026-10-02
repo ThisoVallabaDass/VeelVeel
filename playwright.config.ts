@@ -11,7 +11,8 @@ const fakeMic = path.resolve(
   'packs/tamil-meme',
   pack.clips.find((clip) => clip.defaultRotation)?.audio ?? pack.clips[0]!.audio,
 );
-const baseURL = 'https://127.0.0.1:5173';
+const externalBaseURL = process.env.VEEL_E2E_BASE_URL;
+const baseURL = externalBaseURL ?? 'https://127.0.0.1:5173';
 
 export default defineConfig({
   testDir: './e2e',
@@ -37,7 +38,7 @@ export default defineConfig({
       ],
     },
   },
-  webServer: [
+  webServer: externalBaseURL ? [] : [
     {
       command: 'pnpm --filter @veel-veel/server dev',
       port: 8787,

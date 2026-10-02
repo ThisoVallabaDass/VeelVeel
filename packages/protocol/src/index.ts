@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ROOM_VERSION = 3;
+export const ROOM_VERSION = 4;
 export const roomCodeSchema = z.string().regex(/^[ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/);
 const performanceMode = z.enum(['together', 'turns']);
 const judgeScores = z.object({
@@ -15,6 +15,7 @@ export const roomPlayerSchema = z.object({
   colorToken: z.number().int().min(0).max(4),
   ready: z.boolean(),
   connected: z.boolean(),
+  hostPlayer: z.boolean(),
   score: z.number().int().min(0),
   roundScore: z.number().int().min(0).max(100).nullable(),
   judges: judgeScores.nullable(),
@@ -31,6 +32,7 @@ const clip = z.object({
 export const clientRoomMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('room:create') }),
   z.object({ type: z.literal('room:join'), code: roomCodeSchema, name: z.string().trim().min(1).max(24) }),
+  z.object({ type: z.literal('room:host-player'), name: z.string().trim().min(1).max(24) }),
   z.object({ type: z.literal('room:rejoin'), code: roomCodeSchema, token }),
   z.object({ type: z.literal('room:ready'), ready: z.boolean() }),
   z.object({ type: z.literal('room:leave') }),

@@ -14,6 +14,7 @@ type Player = {
   id: string;
   name: string;
   token: string;
+  hostPlayer: boolean;
   socket: WebSocket | null;
   ready: boolean;
   score: number;
@@ -62,7 +63,7 @@ function send(socket: WebSocket | null, message: ServerRoomMessage) {
 }
 function broadcast(room: Room, message: ServerRoomMessage) {
   send(room.host, message);
-  for (const player of room.players) send(player.socket, message);
+  for (const player of room.players) if (player.socket !== room.host) send(player.socket, message);
 }
 function snapshot(room: Room) {
   broadcast(room, {
@@ -72,6 +73,7 @@ function snapshot(room: Room) {
     players: room.players.map((player, index) => ({
       id: player.id, name: player.name, colorToken: index, ready: player.ready,
       connected: player.socket !== null, score: player.score,
+      hostPlayer: player.hostPlayer,
       roundScore: player.roundScore,
       judges: player.judges,
     })),
@@ -84,7 +86,7 @@ function closeRoom(room: Room) {
   broadcast(room, { type: 'room:closed' });
   rooms.delete(room.code);
   room.host?.close(1000, 'Room closed');
-  for (const player of room.players) player.socket?.close(1000, 'Room closed');
+  for (const player of room.players) if (player.socket !== room.host) player.socket?.close(1000, 'Room closed');
 }
 function detach(socket: WebSocket) {
   const connection = connections.get(socket);
@@ -109,6 +111,7 @@ function attach(socket: WebSocket, room: Room, host: boolean, player?: Player) {
   if (host) {
     if (room.host && room.host !== socket) room.host.close(4000, 'Rejoined elsewhere');
     room.host = socket;
+    if (player) player.socket = socket;
   } else if (player) {
     if (player.socket && player.socket !== socket) player.socket.close(4000, 'Rejoined elsewhere');
     player.socket = socket;
@@ -138,7 +141,7 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     if (room.players.length >= 5) return fail(socket, 'This room has five singers already.');
     if (room.phase !== 'lobby') return fail(socket, 'The show has started. Join the next room.');
     const player: Player = {
-      id: randomUUID(), name: message.name.trim(), token: token(), socket: null,
+      id: randomUUID(), name: message.name.trim(), token: token(), hostPlayer: false, socket: null,
       ready: false, score: 0, roundScore: null, judges: null, submittedRound: null, scoredRound: null, lastLevelAt: 0,
     };
     room.players.push(player);
@@ -152,7 +155,7 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     const room = rooms.get(message.code);
     if (!room) return fail(socket, 'Room expired or closed.');
     if (room.hostToken === message.token) {
-      attach(socket, room, true);
+      attach(socket, room, true, room.players.find((item) => item.hostPlayer));
       send(socket, { type: 'room:created', version: ROOM_VERSION, code: room.code, token: room.hostToken });
     } else {
       const player = room.players.find((item) => item.token === message.token);
@@ -166,6 +169,20 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
   if (!connection) return fail(socket, 'Create or join a room first.');
   const { room, player, host } = connection;
   room.touchedAt = Date.now();
+  if (message.type === 'room:host-player') {
+    if (!host || player) return fail(socket, 'Only a screen-only host can join as a singer.');
+    if (room.phase !== 'lobby') return fail(socket, 'Join as a singer before the show starts.');
+    if (room.players.length >= 5) return fail(socket, 'This room has five singers already.');
+    const hostSinger: Player = {
+      id: randomUUID(), name: message.name.trim(), token: token(), hostPlayer: true, socket,
+      ready: false, score: 0, roundScore: null, judges: null,
+      submittedRound: null, scoredRound: null, lastLevelAt: 0,
+    };
+    room.players.push(hostSinger);
+    attach(socket, room, true, hostSinger);
+    snapshot(room);
+    return;
+  }
   if (message.type === 'room:leave') {
     if (host) closeRoom(room);
     else if (player) {
@@ -214,6 +231,7 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
   }
   if (message.type === 'take:submit') {
     if (!player || room.phase !== 'perform' || room.round !== message.round) return fail(socket, 'No active round for this take.');
+    if (host) return fail(socket, 'The host scores their own take on this device.');
     if (!player.ready) return fail(socket, 'Only ready singers can submit a take.');
     if (!room.host) return fail(socket, 'The host is disconnected. Wait for them to return.');
     if (room.mode === 'turns' && room.activePlayerId !== player.id) return fail(socket, 'Wait for your turn.');
@@ -227,7 +245,9 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     if (!host || room.round !== message.round) return fail(socket, 'Only the host scores the active round.');
     const target = room.players.find((item) => item.id === message.playerId);
     if (!target) return fail(socket, 'Singer not found.');
-    if (target.submittedRound !== message.round || target.scoredRound === message.round) return fail(socket, 'Take missing or already scored.');
+    if (target.scoredRound === message.round || (target.hostPlayer
+      ? target.socket !== socket || !target.ready
+      : target.submittedRound !== message.round)) return fail(socket, 'Take missing or already scored.');
     target.scoredRound = message.round;
     target.score += message.score;
     target.roundScore = message.score;
