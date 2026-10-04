@@ -11,6 +11,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       'packs/**',
+      '.cache/**',
       'data/**',
       'apps/veel-veel/vite.config.js',
       'apps/veel-veel/vite.config.js.map',

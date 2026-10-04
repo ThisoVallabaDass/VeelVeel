@@ -3,7 +3,9 @@ WORKDIR /app
 RUN npm install -g pnpm@11.19.0
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm build
+ARG SOUND_PACK_URL
+ARG SOUND_PACK_SHA256
+RUN pnpm build:deploy
 
 FROM node:24-bookworm-slim
 WORKDIR /app

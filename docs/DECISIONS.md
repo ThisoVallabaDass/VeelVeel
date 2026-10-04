@@ -32,3 +32,6 @@
 - **Use curated vocal additions as the room default.** Labelled speech, singing, laughter and screams are kept; mechanical effects are excluded. Existing Tamil source clips remain available to Local mode. Titles and cuts are tracked in scripts/sound-sources.json; ignored media is reproducibly imported separately.
 - **Keep the supplied short's cut explicitly provisional.** YouTube's automatic captions do not align the Tamil phrase reliably. The first 7.8 seconds are imported under an opening-excerpt label and still need a Tamil speaker's audition for exact phrase boundaries.
 - **Use a temporary Cloudflare HTTPS tunnel until hosting credentials are available.** It publishes the built Node app and WebSockets, but depends on this computer staying awake; the Render blueprint is an optional permanent deployment path, not an already-provisioned service.
+
+- **Ship generated sound data as a separate checksum-pinned release asset.** A streaming gzip JSONL bundle preserves normalized WAVs, labels and precomputed DSP without committing media or requiring YouTube/ffmpeg during deployment. Production builds require a valid URL/hash; local builds retain their demo fallback.
+- **Do not infer rights clearance from a successful import or package.** The release report preserves all 590 current clips as unverified; packaging and licence review are separate steps.

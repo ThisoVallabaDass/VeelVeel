@@ -16,7 +16,10 @@
     "typecheck": "tsc --build",
     "build": "pnpm pack:index && pnpm --filter @veel-veel/client build && pnpm --filter @veel-veel/server build",
     "e2e": "pnpm pack:index && playwright test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "pack:bundle": "tsx scripts/pack-deploy.ts export",
+    "pack:restore": "tsx scripts/pack-deploy.ts restore",
+    "build:deploy": "pnpm pack:restore && pnpm --filter @veel-veel/client build && pnpm --filter @veel-veel/server build"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",

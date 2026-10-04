@@ -75,3 +75,6 @@ Rerunning stages is safe: yt-dlp uses `data/state/download_archive.txt`, and spl
 Room Mic Drop supports 2–5 singers: everyone listens together, records together, and hears each take before its score. Voice chat has Off, Always on and Push to talk, with automatic round muting. Use **Host Room**, optionally join as a singer, share the invite, connect microphones and ready up.
 
 Import curated additions with `python scripts/import-sounds.py`, then run `pnpm build`. On Windows, `powershell -ExecutionPolicy Bypass -File scripts/start-public.ps1` publishes a temporary HTTPS link while this computer stays online. See `docs/DEPLOY.md` for permanent hosting and dataset requirements.
+
+
+Sound deployment: `pnpm pack:bundle` creates a separate audio release under `.cache/releases/`. Upload that asset to stable HTTPS storage and set Render's `SOUND_PACK_URL`; the current digest is pinned in `render.yaml`. Docker uses `pnpm build:deploy` to restore and verify it before building. Missing or invalid bundles stop deployment. See `docs/DEPLOY.md` for the prepared release and rights status.

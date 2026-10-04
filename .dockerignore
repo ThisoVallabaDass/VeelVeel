@@ -17,3 +17,6 @@ data/state
 data/clips/ogg
 __pycache__
 *.pyc
+
+# Deployment restores a verified sound bundle; raw source media stays local.
+data/

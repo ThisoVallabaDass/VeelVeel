@@ -15,7 +15,7 @@ Updated 4 October 2026.
 
 ## Verification
 
-- Nine Vitest checks pass, including real-pack DSP and relay tests for minimum players, voice gating, score masking, and replay-before-score ordering.
+- Eighteen Vitest checks pass, including real-pack DSP and relay tests for minimum players, voice gating, score masking, and replay-before-score ordering.
 - TypeScript and ESLint pass. The production build passes. Arena code remains lazy-loaded (about 134 kB gzip); the main bootstrap is about 130 kB gzip.
 - Two-player and five-player Chromium room tests passed through the public HTTPS endpoint, including automatic singing, host participation, full-room rejection, revealed judge scores and reconnect identity. All four browser tests passed through the public endpoint, including a complete five-round local game.
 - A real Three.js page was rendered and captured at `docs/screens/15-public-home-3d.png` without page errors. This headless software-rendering run measured about 15 FPS; it is not an integrated-GPU or mobile performance result. Hardware FPS/draw-call targets remain unverified.
@@ -23,8 +23,10 @@ Updated 4 October 2026.
 ## Remaining boundaries
 
 - Permanent cloud hosting needs the owner's hosting account/repository connection; `render.yaml`, `Dockerfile` and `docs/DEPLOY.md` prepare that path. The current temporary link changes when its tunnel restarts.
-- Source provenance is retained, but YouTube redistribution rights are not verified. Use cleared media for permanent public release. Media is gitignored; a clean checkout generates demo sounds unless the dataset is supplied.
+- Source provenance is retained, but YouTube redistribution rights are not verified. Use cleared media for permanent public release. Media is gitignored. Local builds can generate demos; production Docker builds now require a verified sound bundle URL and cannot silently fall back. A 590-clip bundle is prepared locally with checksum and upload instructions, pending an asset-host destination.
 - The requested “Azhuga onnum venam okay” short is included as a labelled opening excerpt. Exact phrase boundaries still need a Tamil speaker's audition; automatic captions did not provide a reliable alignment.
 - Synchronization uses buffered playback and a shared lead interval, not clock-synchronized sample scheduling. Physical iOS/Android microphone, speaker feedback and geographically separated voice-chat testing remain manual checks. Headphones are recommended.
 - Voice relay uses PCM over WebSocket and is intended for small parties. No TURN service is needed, but bandwidth scales with participants. Browser background throttling or connection loss can miss a round; reconnect for the next one. Rooms and takes are in memory, so server restart ends rooms.
 - Full avatar customization, imported rigged models, cinematic cameras, advanced post-processing and remaining game modes (Last Voice Standing, Sound Whispers, Asal/Nakal, Voice Charades, Daily Stage and Remix Riot) are not complete. Daily Stage is visibly disabled. This release scope is playable Mic Drop, not every mode in the original brief.
+
+- Sound bundle export/restore is implemented with streamed compression, whole-archive and per-file checksums, path restrictions and completeness checks. See `docs/sound-bundle-release.json` and `docs/DEPLOY.md`.

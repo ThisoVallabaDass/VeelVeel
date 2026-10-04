@@ -1,0 +1,15 @@
+{
+  "format": "veel-sounds-v1",
+  "clips": 590,
+  "files": 1181,
+  "bytes": 181734257,
+  "sha256": "78e6702633e5231227cc5471a7b5f6ad9a9b1a681ac922f9fca1f92c302d3dc3",
+  "rights": {
+    "unverified": 590
+  },
+  "asset": "veel-sounds-v1.jsonl.gz",
+  "eligibleClips": 452,
+  "playableVocalAdditions": 55,
+  "sourceRights": "Unverified. Packaging is not permission to redistribute.",
+  "uploadStatus": "Prepared locally; not uploaded."
+}
