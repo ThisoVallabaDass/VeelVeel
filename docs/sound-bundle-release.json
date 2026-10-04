@@ -11,5 +11,7 @@
   "eligibleClips": 452,
   "playableVocalAdditions": 55,
   "sourceRights": "Unverified. Packaging is not permission to redistribute.",
-  "uploadStatus": "Prepared locally; not uploaded."
+  "uploadStatus": "Uploaded to GitHub release soundpack-v1.",
+  "downloadUrl": "https://github.com/ThisoVallabaDass/VeelVeel/releases/download/soundpack-v1/veel-sounds-v1.jsonl.gz",
+  "releaseUrl": "https://github.com/ThisoVallabaDass/VeelVeel/releases/tag/soundpack-v1"
 }

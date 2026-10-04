@@ -14,13 +14,13 @@ The Dockerfile also works on any Node-capable container host. Keep one replica: 
 
 Source audio and generated packs are deliberately gitignored. Production Docker builds now run `pnpm build:deploy`: restore a checksum-pinned sound bundle, then build the client and server. They fail if the bundle URL/checksum is missing or invalid; they cannot silently deploy a demo library. Ordinary `pnpm build` and local development retain the synthesized fallback.
 
-### Prepared sound release
+### Published sound release
 
-The current release is `.cache/releases/veel-sounds-v1.jsonl.gz` (181,734,257 bytes, about 182 MB). It contains 590 normalized clips, their DSP feature JSON and the pack manifest: 1,181 files total. Existing labels, source URLs, exclusions and rights metadata are preserved. 452 clips are eligible for rotation, including 55 new playable vocals. No microphone recordings or raw downloads are included. The archive, checksum file and upload instructions are ignored by Git; only the small `docs/sound-bundle-release.json` record is tracked.
+The current release is published at [GitHub soundpack-v1](https://github.com/ThisoVallabaDass/VeelVeel/releases/tag/soundpack-v1), with local copy `.cache/releases/veel-sounds-v1.jsonl.gz` (181,734,257 bytes, about 182 MB). It contains 590 normalized clips, their DSP feature JSON and the pack manifest: 1,181 files total. Existing labels, source URLs, exclusions and rights metadata are preserved. 452 clips are eligible for rotation, including 55 new playable vocals. No microphone recordings or raw downloads are included. The archive, checksum file and upload instructions are ignored by Git; only the small `docs/sound-bundle-release.json` record is tracked.
 
 1. Review redistribution permission for the selected audio. All 590 current clips remain unverified; packaging does not clear rights.
 2. Upload the `.jsonl.gz` file as a release asset on a **public** GitHub repository, or to object storage with a stable HTTPS URL that the build can access without authentication. Do not commit the binary to Git. Private GitHub release links cannot be fetched by this downloader.
-3. Set Render's `SOUND_PACK_URL` to the direct download URL. `SOUND_PACK_SHA256` is already pinned in `render.yaml` for this exact bundle. Render passes these environment variables to the Docker build arguments.
+3. Both `SOUND_PACK_URL` and `SOUND_PACK_SHA256` are now pinned in `render.yaml` for the published GitHub bundle. Future releases must update both values. Render passes these environment variables to the Docker build arguments.
 4. Deploy. The importer streams the download, verifies its SHA-256, checks individual file hashes, permits only pack JSON/WAV/feature files, checks manifest completeness, and restores into `packs/tamil-meme`. The worklet comes from the repository, never the audio archive. Existing output libraries are not overwritten. The bundle is embedded in the image, so playback does not depend on the asset host after deployment.
 
 To regenerate after sound changes: `pnpm pack:index` then `pnpm pack:bundle`. Upload the new artifact and update both the URL and digest in Render. To validate a local bundle without touching current sounds:

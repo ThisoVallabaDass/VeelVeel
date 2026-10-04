@@ -10,6 +10,6 @@ services:
       - key: PORT
         value: 8787
       - key: SOUND_PACK_URL
-        sync: false
+        value: https://github.com/ThisoVallabaDass/VeelVeel/releases/download/soundpack-v1/veel-sounds-v1.jsonl.gz
       - key: SOUND_PACK_SHA256
         value: 78e6702633e5231227cc5471a7b5f6ad9a9b1a681ac922f9fca1f92c302d3dc3
