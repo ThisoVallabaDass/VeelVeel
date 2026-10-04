@@ -1,5 +1,10 @@
 # Veel Veel
 
+[Deploy to Render](https://render.com/deploy?repo=https://github.com/ThisoVallabaDass/VeelVeel)
+
+Uses the checked-in Docker/Render configuration. The sound-bundle URL and checksum must be configured before deployment.
+
+
 Veel Veel is a browser voice-mimic party game with a procedural festival/theatre arena, local Mic Drop, and room Mic Drop for up to five singers on a reachable network. The host can sing from the host screen or run the room for phone singers. Room hosts can choose simultaneous singing or turns; each singer sees rhythm, melody, energy and vibe scores.
 
 ```powershell
