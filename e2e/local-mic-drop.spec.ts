@@ -8,7 +8,7 @@ mkdirSync(screenshots, { recursive: true });
 test('five-round Mic Drop and festival/theatre theme screenshots', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 980 });
   await page.goto('/?quality=low&e2e=1');
-  await expect(page.getByText(/TAMIL PACK/)).toBeVisible();
+  await expect(page.getByText(/TAMIL PACK|MEME MIX/)).toBeVisible();
   await page.screenshot({ path: path.join(screenshots, '01-home.png'), fullPage: true });
 
   await page.getByRole('button', { name: /PLAY LOCAL/ }).click();

@@ -2,6 +2,7 @@ export interface RotationClip {
   id: string;
   difficulty: number;
   defaultRotation: boolean;
+  durationSeconds?: number;
   flags?: string[];
 }
 
@@ -13,11 +14,11 @@ export function pickClips<T extends RotationClip>(
 ): T[] {
   const eligible = clips.filter(
     (clip) =>
-      clip.defaultRotation && !clip.flags?.some((flag) => ['banned', 'excluded'].includes(flag)),
+      clip.defaultRotation && (clip.durationSeconds === undefined || clip.durationSeconds >= 0.3) && !clip.flags?.some((flag) => ['banned', 'excluded'].includes(flag)),
   );
   const remaining = [...eligible];
   const picked: T[] = [];
-  for (let round = 0; round < Math.min(rounds, remaining.length); round += 1) {
+  for (let round = 0; round < Math.min(rounds, eligible.length); round += 1) {
     if (round === 0) {
       picked.push(remaining.shift()!);
       continue;

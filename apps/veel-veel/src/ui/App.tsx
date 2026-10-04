@@ -140,6 +140,7 @@ export default function App() {
   } = useGame();
   const [pack, setPack] = useState<Pack | null>(null);
   const [packError, setPackError] = useState('');
+  const micOpening = useRef(false);
   const [mic, setMic] = useState<MicCapture | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState('');
@@ -304,6 +305,8 @@ export default function App() {
   }, [screen, phase, recording, recordingDuration, mic]);
 
   async function openMic() {
+    if (micOpening.current) return;
+    micOpening.current = true;
     const capture = new MicCapture();
     try {
       await capture.open(deviceId || undefined);
@@ -322,7 +325,7 @@ export default function App() {
           ? error.message
           : 'Mic permission is unavailable. Open this on HTTPS.',
       );
-    }
+    } finally { micOpening.current = false; }
   }
 
   async function calibrateNoise() {
@@ -347,8 +350,8 @@ export default function App() {
       return;
     }
     mic.start();
-    setToast('Say “Veel Veel!” now — you have one second.');
-    await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    setToast('Say “Veel Veel!” now — you have three seconds.');
+    await new Promise((resolve) => window.setTimeout(resolve, 3000));
     const take = mic.stop();
     let energy = 0;
     for (const value of take) energy += value * value;
@@ -614,6 +617,29 @@ export default function App() {
               <i /> {pack?.language === 'mixed' ? 'MEME MIX' : 'TAMIL PACK'} · {pack?.clips.length ?? '···'} SOUNDS
             </span>,
           )}
+          <section className="home-actions">
+            <button
+              className="mode-link"
+              onClick={() => { window.location.href = '/host'; }}
+            >
+              ▣ &nbsp; HOST ROOM <small>2–5 PLAYERS</small>
+            </button>
+            <button
+              className="mode-link"
+              onClick={() => { window.location.href = '/join'; }}
+            >
+              ⌕ &nbsp; JOIN ROOM <small>USE A CODE</small>
+            </button>
+            <button
+              className="mode-link"
+              disabled
+            >
+              ✦ &nbsp; DAILY STAGE <small>COMING LATER</small>
+            </button>
+            <button className="mode-link theme-trigger" onClick={() => setThemeMenu(!themeMenu)}>
+              ◈ &nbsp; STAGE <small>{gameTheme.name.toUpperCase()}</small>
+            </button>
+          </section>
           <section className="home-hero">
             <div className="home-copy">
               <div className="season-tag">
@@ -636,7 +662,7 @@ export default function App() {
                 <span>↗</span>
               </button>
               <p className="privacy-note">
-                <span>◉</span> YOUR MIC STAYS ON THIS DEVICE
+                <span>◉</span> LOCAL MODE: MIC STAYS ON THIS DEVICE
               </p>
               {packError && <p className="error-note">{packError}</p>}
             </div>
@@ -662,29 +688,7 @@ export default function App() {
               </div>
             </div>
           </section>
-          <section className="home-actions">
-            <button
-              className="mode-link"
-              onClick={() => { window.location.href = '/host'; }}
-            >
-              ▣ &nbsp; HOST ROOM <small>UP TO 5 PHONES</small>
-            </button>
-            <button
-              className="mode-link"
-              onClick={() => { window.location.href = '/join'; }}
-            >
-              ⌕ &nbsp; JOIN ROOM <small>USE A CODE</small>
-            </button>
-            <button
-              className="mode-link"
-              onClick={() => setToast('Today’s stage is Mic Drop — and Paati is ready.')}
-            >
-              ✦ &nbsp; DAILY STAGE <small>PLAY TODAY</small>
-            </button>
-            <button className="mode-link theme-trigger" onClick={() => setThemeMenu(!themeMenu)}>
-              ◈ &nbsp; STAGE <small>{gameTheme.name.toUpperCase()}</small>
-            </button>
-          </section>
+
           {themeMenu && (
             <div className="theme-popover">
               {Object.values(themes).map((stage) => (

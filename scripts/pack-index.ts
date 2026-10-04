@@ -11,6 +11,8 @@ type CatalogClip = {
   clip_id: string;
   wav_path: string;
   video_title?: string;
+  title?: string;
+  rights?: string;
   source_url?: string;
   start_s?: number;
   end_s?: number;
@@ -151,15 +153,16 @@ for (let index = 0; index < manifest.length; index += 1) {
       id: item.clip_id,
       audio: `clips/${item.clip_id}.wav`,
       features: `features/${item.clip_id}.json`,
-      title: '',
-      label: '',
+      title: item.title ?? '',
+      label: item.title ?? '',
+      rights: item.rights ?? 'unverified-source',
       language: item.language ?? 'ta',
       source: item.source_url ?? '',
       originalTitle: item.video_title ?? '',
       difficulty: difficulty(features),
       durationSeconds: features.durationSeconds,
-      flags: [...(item.flags ?? []), ...(longClip ? ['too-long'] : [])],
-      defaultRotation: !longClip,
+      flags: [...(item.flags ?? []), ...(longClip ? ['too-long'] : []), ...(audio.length < 6615 ? ['too-short-or-silent'] : [])],
+      defaultRotation: audio.length >= 6615 && !longClip && !item.flags?.some((flag) => ['banned', 'excluded'].includes(flag)),
       splitAtSeconds: [item.start_s ?? 0, item.end_s ?? features.durationSeconds],
     });
   } catch (error) {
@@ -233,7 +236,7 @@ const pack = {
   attribution: usingDemo
     ? 'Generated from sine waves in scripts/pack-index.ts; no external media.'
     : 'Clip source URLs are retained with each item; user-provided dataset.',
-  labelsStatus: 'unlabeled',
+  labelsStatus: clips.some((clip) => clip.title) ? 'partially-labelled' : 'unlabeled',
   clipCount: clips.length,
   rotationCount: clips.filter((clip) => clip.defaultRotation).length,
   clips,

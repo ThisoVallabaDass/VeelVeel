@@ -15,6 +15,7 @@ export class MicCapture {
   private analyser?: AnalyserNode;
   private chunks: Float32Array[] = [];
   private capturing = false;
+  onAudio?: (samples: Float32Array, sampleRate: number) => void;
 
   async open(deviceId?: string) {
     const constraints: MediaTrackConstraints = {
@@ -43,6 +44,7 @@ export class MicCapture {
     source.connect(this.analyser);
     this.node.port.onmessage = (event: MessageEvent<Float32Array>) => {
       if (this.capturing) this.chunks.push(new Float32Array(event.data));
+      this.onAudio?.(event.data, this.sampleRate);
     };
     await this.context.resume();
   }

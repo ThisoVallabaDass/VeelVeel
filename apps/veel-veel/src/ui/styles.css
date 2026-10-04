@@ -2032,3 +2032,8 @@ select:focus-visible {
 .debug-overlay pre {
   white-space: pre-wrap;
 }
+
+.home-actions { margin-top:22px; }
+.home-actions .mode-link { min-height:80px; font-size:24px; }
+.home-actions .mode-link:first-child { background:#ff5395; color:#141126; }
+.home-actions .mode-link:nth-child(2) { border:2px solid #56e2d2; }

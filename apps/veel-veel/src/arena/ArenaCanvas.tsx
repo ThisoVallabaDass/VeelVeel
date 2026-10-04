@@ -27,7 +27,7 @@ export default function ArenaCanvas({
     const element = host.current;
     if (!element) return;
     const theme = themes[themeId] ?? themes.festival!;
-    const staticFrame = reducedMotion;
+    const staticFrame = reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(theme.backdrop);
     scene.fog = new THREE.Fog(theme.backdrop, 15, 38);
@@ -350,6 +350,11 @@ export default function ArenaCanvas({
       fans.setColorAt(i, new THREE.Color(['#766a91', '#9a7382', '#608a8e', '#aa8a5c'][i % 4]!));
     }
     scene.add(fans);
+    const fanHeads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.12, 6, 4), new THREE.MeshStandardMaterial({ color: '#c2937e' }), fans.count);
+    const fanArms = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.035, 0.035, 0.32, 4), new THREE.MeshStandardMaterial({ color: '#bd9cc5' }), fans.count * 2);
+    scene.add(fanHeads, fanArms);
+    const tomatoes = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 7, 5), new THREE.MeshStandardMaterial({ color: '#ed343d', roughness: 0.7 }), 24);
+    scene.add(tomatoes);
     const confetti = new THREE.InstancedMesh(
       new THREE.PlaneGeometry(0.12, 0.2),
       new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, vertexColors: true }),
@@ -363,6 +368,14 @@ export default function ArenaCanvas({
       confetti.setColorAt(i, new THREE.Color(['#ff4f94', '#ffcc4a', '#54e5d2', '#9a82ff'][i % 4]!));
     }
     scene.add(confetti);
+    for (let i = 0; i < fans.count; i++) {
+      fans.getMatrixAt(i, dummy.matrix); dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+      dummy.position.y += 0.35; dummy.updateMatrix(); fanHeads.setMatrixAt(i, dummy.matrix);
+      dummy.position.y -= 0.3;
+      for (let side = 0; side < 2; side++) {
+        dummy.position.x += side ? 0.4 : -0.2; dummy.updateMatrix(); fanArms.setMatrixAt(i * 2 + side, dummy.matrix);
+      }
+    }
     let frame = 0;
     let stopped = false;
     let lastFrameTime = 0;
@@ -398,13 +411,24 @@ export default function ArenaCanvas({
         });
         lastStageScore = stageScore;
       }
+      tomatoes.visible = stageScore < 40;
+      confetti.visible = stageScore >= 80;
       if (!staticFrame) {
         const t = frame * 0.018;
+        if (tomatoes.visible) {
+          for (let i = 0; i < tomatoes.count; i++) {
+            const flight = (t * 0.65 + i / tomatoes.count) % 1;
+            dummy.position.set((i % 7 - 3) * 1.5 * (1 - flight), 0.4 + Math.sin(flight * Math.PI) * 4, -8 + flight * 10);
+            dummy.scale.setScalar(1); dummy.rotation.set(0, 0, 0); dummy.updateMatrix();
+            tomatoes.setMatrixAt(i, dummy.matrix);
+          }
+          tomatoes.instanceMatrix.needsUpdate = true;
+        }
         performers.forEach((performer, index) => {
           const rig = rigs[index]!;
-          const lead = index === leadSinger;
+          const lead = leadSinger < 0 || index === leadSinger;
           const singing = stageActive && lead;
-          const dance = stageScore >= 90 && !stageActive;
+          const dance = stageScore >= 80 && !stageActive;
           const flop = stageScore < 40 && !stageActive;
           const pace = singing ? 8.2 : dance ? 5.8 : 2.4;
           const stride = Math.sin(t * pace + index * 0.5);
@@ -432,13 +456,26 @@ export default function ArenaCanvas({
             const column = index % 30;
             const row = Math.floor(index / 30);
             dummy.position.set((column - 14.5) * 0.78,
-              0.28 + (index % 5) * 0.09 + Math.max(0, Math.sin(t * (3 + energy * 5) + index * 1.73)) * 0.24 * energy,
+              (stageScore >= 80 ? 0.85 : 0.28) + (index % 5) * 0.09 + Math.max(0, Math.sin(t * (3 + energy * 5) + index * 1.73)) * 0.24 * energy,
               -8.2 - row * 1.1);
             dummy.scale.setScalar(0.75 + (index % 4) * 0.12);
             dummy.updateMatrix();
             fans.setMatrixAt(index, dummy.matrix);
+            const fanY = dummy.position.y;
+            const fanX = dummy.position.x;
+            dummy.position.y = fanY + 0.35;
+            dummy.updateMatrix(); fanHeads.setMatrixAt(index, dummy.matrix);
+            for (let side = 0; side < 2; side++) {
+              dummy.position.x = fanX + (side ? 0.2 : -0.2);
+              dummy.position.y = fanY + (stageScore >= 80 ? 0.4 : 0.06);
+              dummy.rotation.z = (side ? 1 : -1) * (stageScore >= 80 ? 0.4 + Math.sin(t * 8 + index) * 0.25 : 0.22);
+              dummy.updateMatrix(); fanArms.setMatrixAt(index * 2 + side, dummy.matrix);
+            }
+            dummy.rotation.set(0, 0, 0);
           }
           fans.instanceMatrix.needsUpdate = true;
+          fanHeads.instanceMatrix.needsUpdate = true;
+          fanArms.instanceMatrix.needsUpdate = true;
         }
         pink.intensity = 29 + Math.sin(t * 1.4) * 5;
         gold.intensity = 27 + Math.cos(t) * 4;
@@ -451,7 +488,7 @@ export default function ArenaCanvas({
       }
       renderer.render(scene, camera);
       frame += 1;
-      if (staticFrame) return;
+
       requestAnimationFrame(animate);
     };
     animate();

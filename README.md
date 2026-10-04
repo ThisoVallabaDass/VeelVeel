@@ -7,7 +7,7 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm dev` indexes clips into the ignored `packs/` folder, then starts the HTTPS game on port 5173 and a secure room relay on port 8787. Open the local address for **Play Local**, **Host Room**, or **Join Room**. The current local Tamil pack contains 534 unlabeled clip IDs; a fresh checkout without local source media creates twelve synthesized demo clips. See [local setup](docs/LOCAL_DEV.md), [sound additions](docs/CLIPS.md), [room protocol](docs/PROTOCOL.md), [hosting](docs/DEPLOY.md), and [current status](docs/STATUS.md).
+`pnpm dev` indexes clips into the ignored `packs/` folder, then starts the HTTPS game on port 5173 and a secure room relay on port 8787. Open the local address for **Play Local**, **Host Room**, or **Join Room**. The current workspace pack contains 590 Tamil/English meme clips, including 56 labelled vocal additions; a fresh checkout without local source media creates twelve synthesized demo clips. See [local setup](docs/LOCAL_DEV.md), [sound additions](docs/CLIPS.md), [room protocol](docs/PROTOCOL.md), [hosting](docs/DEPLOY.md), and [current status](docs/STATUS.md).
 
 Game checks: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`.
 
@@ -68,3 +68,10 @@ Edit `data/labels.csv` by hand. Its columns are `clip_id, keep, title, title_ta,
 ## Resume and assumptions
 
 Rerunning stages is safe: yt-dlp uses `data/state/download_archive.txt`, and splitting uses `data/state/processed.json`. Playlist sources are normalized to playlist URLs, the single source remains a single video, and duplicate video IDs retain all source playlist IDs. Smoke testing is intended before the complete run. Extraction errors are logged per video and the run continues. FFmpeg is external; a media stage stops with platform-specific install guidance if either binary is missing.
+
+
+## Online party playtest
+
+Room Mic Drop supports 2–5 singers: everyone listens together, records together, and hears each take before its score. Voice chat has Off, Always on and Push to talk, with automatic round muting. Use **Host Room**, optionally join as a singer, share the invite, connect microphones and ready up.
+
+Import curated additions with `python scripts/import-sounds.py`, then run `pnpm build`. On Windows, `powershell -ExecutionPolicy Bypass -File scripts/start-public.ps1` publishes a temporary HTTPS link while this computer stays online. See `docs/DEPLOY.md` for permanent hosting and dataset requirements.

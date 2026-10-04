@@ -24,3 +24,11 @@
 - **Offer take-turns room singing.** Simultaneous takes can pick up nearby voices; serial turns give groups a usable fallback without changing DSP or audio capture.
 - **Let the host occupy one optional singer seat.** A host-only room could not start because there was no ready singer; the host can now connect a mic and play solo while screen-only hosting remains available.
 - **Score the host take in the host browser.** Host mic audio does not need to pass through the relay to reach the same scoring engine.
+
+- **The October party request supersedes solo-room and manual-turn behavior.** Public room Mic Drop now requires 2–5 ready singers and automatically schedules listening and recording together.
+- **Buffer one round of PCM in relay memory.** Everyone must hear each singer's actual take; score snapshots remain masked until that take ends. Audio is cleared on the next round or room expiry, never written to disk.
+- **Gate the shared round on decoded references.** A 1.5-second start lead handles ordinary network jitter; a timeout prevents failed downloads/captures blocking the party forever. True clock synchronization remains future work.
+- **Relay opt-in voice chat over the existing WebSocket for the first playtest.** Short 16 kHz PCM chunks work through the same HTTPS endpoint without TURN credentials, trading bandwidth for simple connectivity. Mute is enforced on the server during listening/recording.
+- **Use curated vocal additions as the room default.** Labelled speech, singing, laughter and screams are kept; mechanical effects are excluded. Existing Tamil source clips remain available to Local mode. Titles and cuts are tracked in scripts/sound-sources.json; ignored media is reproducibly imported separately.
+- **Keep the supplied short's cut explicitly provisional.** YouTube's automatic captions do not align the Tamil phrase reliably. The first 7.8 seconds are imported under an opening-excerpt label and still need a Tamil speaker's audition for exact phrase boundaries.
+- **Use a temporary Cloudflare HTTPS tunnel until hosting credentials are available.** It publishes the built Node app and WebSockets, but depends on this computer staying awake; the Render blueprint is an optional permanent deployment path, not an already-provisioned service.
