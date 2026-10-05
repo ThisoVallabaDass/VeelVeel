@@ -29,10 +29,14 @@ test('two singers automatically listen, record, hear each take, then see scores'
   await first.getByLabel('Voice mode').selectOption('push');
   await host.getByRole('button', { name: /START THE SHOW/ }).click();
   await expect(first.getByRole('button', { name: /HOLD TO TALK/ })).toBeDisabled();
-  await expect(first.getByText('● RECORDING · GIVE IT EVERYTHING')).toBeVisible({ timeout: 25000 });
-  await expect(second.getByText('● RECORDING · GIVE IT EVERYTHING')).toBeVisible();
-  await expect(first.getByText('TAKE SENT ✓', { exact: true })).toBeVisible({ timeout: 25000 });
-  await expect(first.getByText(/ON STAGE/)).toBeVisible({ timeout: 20000 });
+  await Promise.all([
+    expect(first.getByText('● REC · MICROPHONE ON')).toBeVisible({ timeout: 25000 }),
+    expect(second.getByText('● REC · MICROPHONE ON')).toBeVisible({ timeout: 25000 }),
+  ]);
+  await expect(first.getByRole('region', { name: 'Recording studio' })).toBeInViewport();
+  await first.screenshot({ path: '.cache/recording-mobile.png', fullPage: true });
+  await expect(first.getByText('✓ TAKE SAVED FOR THIS ROUND', { exact: true })).toBeVisible({ timeout: 25000 });
+  await expect(first.getByRole('region', { name: 'Take comparison' })).toBeVisible({ timeout: 20000 });
   await expect(first.getByRole('button', { name: /HOLD TO TALK/ })).toBeEnabled();
   await expect(first.getByText('THE SCORES.')).toBeVisible({ timeout: 35000 });
   await expect(second.getByText('THE SCORES.')).toBeVisible();
@@ -60,7 +64,7 @@ test('host singer needs a friend and five seats is the maximum', async ({ browse
   await extra.getByRole('button', { name: /JOIN ROOM/ }).click();
   await expect(extra.getByRole('alert')).toContainText('five singers');
   await host.getByRole('button', { name: /START THE SHOW/ }).click();
-  await expect(host.getByText('● RECORDING · GIVE IT EVERYTHING')).toBeVisible({ timeout: 25000 });
+  await expect(host.getByText('● REC · MICROPHONE ON')).toBeVisible({ timeout: 25000 });
   await expect(host.getByText('THE SCORES.')).toBeVisible({ timeout: 65000 });
   await expect(host.locator('.room-judges')).toHaveCount(5);
   await Promise.all([host.close(), extra.close(), ...guests.map((p) => p.close())]);

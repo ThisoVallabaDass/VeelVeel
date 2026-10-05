@@ -35,3 +35,10 @@
 
 - **Ship generated sound data as a separate checksum-pinned release asset.** A streaming gzip JSONL bundle preserves normalized WAVs, labels and precomputed DSP without committing media or requiring YouTube/ffmpeg during deployment. Production builds require a valid URL/hash; local builds retain their demo fallback.
 - **Do not infer rights clearance from a successful import or package.** The release report preserves all 590 current clips as unverified; packaging and licence review are separate steps.
+
+- **Give recording its own screen and an honest live signal.** Listening, preparation, recording and submission have separate visual states. The animated mouth and waveform follow measured audio; a silent mic does not show invented activity.
+- **Gate the whole take before trimming.** Quiet background audio, DC offsets and isolated clicks must not become scoreable performances through relative normalization. Room setup measures a quiet baseline; takes need 120 ms and 8% activity above it. A noisy calibration can reject a soft singer, so setup asks everyone to stay quiet. This is activity detection, not speech recognition.
+- **Remove the recording beep.** Speaker playback during capture can contaminate an otherwise silent take. The visual countdown and REC badge now signal when to sing.
+- **Remove the timbre score's 85-point floor.** The old capped MFCC distance awarded a large contribution even for unrelated audio; the full distance now decays continuously.
+- **Run room scoring in Web Workers.** The host must remain responsive while recording itself and scoring guests. Each request terminates its worker on completion/failure and ignores results from previous rounds.
+- **Use original branding and animation.** The mic logo is generated artwork; the recording character and stage rigs are original code inspired by the supplied gameplay flow. No reference-video assets are extracted.

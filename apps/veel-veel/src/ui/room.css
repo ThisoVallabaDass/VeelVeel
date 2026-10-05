@@ -73,3 +73,5 @@
 .party-host-actions { position:sticky; top:0; z-index:10; background:#090a20ed; padding:0 0 16px; }
 .party-host-actions:empty { display:none; }
 .party-live-banner { position:sticky; top:0; z-index:9; border:2px solid #56e2d2; background:#151c38f5; padding:18px; font-weight:800; font-size:22px; border-radius:12px; }
+.room-round-secondary > h2,.room-round-secondary > h3,.room-round-secondary > p,.room-round-secondary .room-take-controls{display:none}.room-round-secondary .room-players{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}.room-round-secondary .room-player{flex-wrap:wrap}.room-round-secondary .room-player small{width:100%;text-align:left;margin:0}.room-round-secondary .room-kicker{font-size:12px}
+.room-app.is-in-round{display:flex;flex-direction:column}.is-in-round>.party-voice{order:10}.is-in-round>.room-code-bar{padding:10px 0}.is-in-round>.room-code-bar strong{font-size:26px}.is-in-round>.room-stage{width:100%;flex-shrink:0}.is-in-round>.recording-studio,.is-in-round>.take-comparison{width:100%}.is-in-round>.room-round-secondary{width:100%;margin:8px auto}.recording-studio{scroll-margin-top:12px}

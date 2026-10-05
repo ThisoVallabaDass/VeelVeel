@@ -1,3 +1,4 @@
+import micLogo from '../assets/veel-mic.png';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import * as QRCode from 'qrcode';
 import type { AudioFeatures, ScoreBreakdown } from '@veel-veel/dsp';
@@ -5,12 +6,17 @@ import { pcm16ToFloat, resampleMono, toPcm16, trimSilence } from '@veel-veel/dsp
 import { ROOM_VERSION, serverRoomMessageSchema } from '@veel-veel/protocol';
 import type { ClientRoomMessage, ServerRoomMessage } from '@veel-veel/protocol';
 import { PartyAudio, encodePcm, decodePcm } from '../audio/party-audio.js';
-import { MicCapture, scoreTake } from '../audio/mic.js';
+import { MicCapture } from '../audio/mic.js';
+import { scoreTakeAsync } from '../audio/score-async.js';
 import { playCue } from '../audio/sfx.js';
 import { speakJudge } from '../audio/judge-voices.js';
 import { pickClips } from '../content/clip-picker.js';
 import { playerTokens } from '../content/themes.js';
 import './room.css';
+import { TakeComparison } from './TakeComparison.js';
+import { takeEnvelope } from '../audio/envelope.js';
+import { RecordingStudio } from './RecordingStudio.js';
+import type { StudioPhase } from './RecordingStudio.js';
 
 interface PackClip {
   id: string;
@@ -57,6 +63,10 @@ export default function RoomApp() {
   const [clip, setClip] = useState<RoomClip | null>(null);
   const [mic, setMic] = useState<MicCapture | null>(null);
   const [level, setLevel] = useState(0);
+  const [studioPhase, setStudioPhase] = useState<StudioPhase>('loading');
+  const [deadline, setDeadline] = useState(0);
+  const [calibrating, setCalibrating] = useState(false);
+  const openingMic = useRef(false);
   const [recording, setRecording] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [scores, setScores] = useState<Record<string, ScoreBreakdown>>({});
@@ -67,6 +77,7 @@ export default function RoomApp() {
   const [playbackLevel, setPlaybackLevel] = useState(0);
   const [replaying, setReplaying] = useState(false);
   const [reaction, setReaction] = useState<number | null>(null);
+  const [replayEnvelope, setReplayEnvelope] = useState<number[]>([]);
   const [replaySinger, setReplaySinger] = useState('');
   const partyRef = useRef<PartyAudio | null>(null);
   const sequenceTimers = useRef<number[]>([]);
@@ -182,7 +193,8 @@ export default function RoomApp() {
     if (!referenceRef.current) await loadReference(clipRef.current);
     if (!referenceRef.current) return;
     try {
-      const result = scoreTake(decodePcm(message.pcm16), 22_050, referenceRef.current);
+      const result = await scoreTakeAsync(decodePcm(message.pcm16), 22_050, referenceRef.current);
+      if (roundRef.current !== message.round) return;
 
       setScores((previous) => ({ ...previous, [message.playerId]: result }));
       send({ type: 'round:score', round: message.round, playerId: message.playerId, score: result.total,
@@ -233,12 +245,13 @@ export default function RoomApp() {
       if (message.clip && message.clip.id !== clipRef.current?.id) {
         clipRef.current = message.clip;
         setClip(message.clip);
-        if (host) void loadReference(message.clip);
+        void loadReference(message.clip);
       }
       return;
     }
     if (message.type === 'round:begin') {
       setReplaying(false); setReaction(null); setReplaySinger('');
+      setStudioPhase('loading'); setDeadline(0);
       setStep('Loading the sound for everyone…');
       sequenceTimers.current.forEach(window.clearTimeout);
       partyRef.current?.stop();
@@ -254,14 +267,16 @@ export default function RoomApp() {
       setPhase('perform');
       setScores({});
       setSubmitted(false);
-      if (host) void loadReference(message.clip);
+      void loadReference(message.clip);
       return;
     }
     if (message.type === 'round:go') {
+      setStudioPhase('listen');
+      setDeadline(Date.now() + message.delayMs + message.durationSeconds * 1000);
       setStep('Listen together · your microphone is muted');
       partyRef.current?.playReference(message.delayMs);
-      sequenceTimers.current.push(window.setTimeout(() => setStep('Get ready… 3, 2, 1'), message.delayMs + message.durationSeconds * 1000));
-      sequenceTimers.current.push(window.setTimeout(() => { setStep('Sing now! Everyone records together'); startRef.current(); }, message.delayMs + message.durationSeconds * 1000 + 3000));
+      sequenceTimers.current.push(window.setTimeout(() => { setStudioPhase('countdown'); setDeadline(Date.now() + 3000); setStep('Get ready… 3, 2, 1'); }, message.delayMs + message.durationSeconds * 1000));
+      sequenceTimers.current.push(window.setTimeout(() => { setStudioPhase('record'); setDeadline(Date.now() + Math.max(3, message.durationSeconds) * 1000); setStep('Sing now! Everyone records together'); startRef.current(); }, message.delayMs + message.durationSeconds * 1000 + 3000));
       return;
     }
     if (message.type === 'voice:audio') {
@@ -270,6 +285,7 @@ export default function RoomApp() {
     }
     if (message.type === 'take:replay') {
       setReplaying(true); setReaction(null); setReplaySinger(message.playerId);
+      setReplayEnvelope(takeEnvelope(decodePcm(message.pcm16)));
       setStep('Listen to each take · scores follow the performance');
       partyRef.current?.playPcm(message.pcm16);
       return;
@@ -341,15 +357,19 @@ export default function RoomApp() {
   }
   async function openMic() {
     unlockAudio();
-    if (micRef.current) return;
+    if (micRef.current || openingMic.current) return;
+    openingMic.current = true;
+    setCalibrating(true);
     const capture = new MicCapture();
     try {
       await capture.open();
+      await capture.calibrate();
       capture.onAudio = (samples, rate) => partyRef.current?.voiceFrame(samples, rate, voiceRef.current, (pcm16) => send({ type: 'voice:audio', pcm16 }));
       micRef.current = capture;
       setMic(capture);
       setError('');
     } catch (reason) { capture.close(); setError(`Mic unavailable: ${String(reason)}`); }
+    finally { openingMic.current = false; setCalibrating(false); }
   }
   async function beginRound() {
     unlockAudio();
@@ -387,15 +407,17 @@ export default function RoomApp() {
   function startTake() {
     if (!mic || roundRef.current === null || !clip || !myTurn || submitted || recording) return;
     mic.start();
-    playCue('record');
+    setDeadline(Date.now() + Math.max(3, Math.min(8, clip.durationSeconds)) * 1000);
     setRecording(true);
-    recordTimer.current = window.setTimeout(() => finishRef.current(), Math.min(8, clip.durationSeconds) * 1000);
+    recordTimer.current = window.setTimeout(() => finishRef.current(), Math.max(3, Math.min(8, clip.durationSeconds)) * 1000);
   }
   async function finishTake() {
     if (!micRef.current || roundRef.current === null || !recording) return;
     window.clearTimeout(recordTimer.current);
+    const scoringRound = roundRef.current;
     const samples = micRef.current.stop();
     setRecording(false);
+    setStudioPhase('sent');
     const resampled = resampleMono(samples, micRef.current.sampleRate, 22_050);
     const trimmed = trimSilence(resampled, 22_050, -43, 50).samples;
     const pcm = toPcm16(trimmed.length ? trimmed : new Float32Array(1), 8, 22_050);
@@ -405,7 +427,8 @@ export default function RoomApp() {
       if (!referenceRef.current && clipRef.current) await loadReference(clipRef.current);
       if (!referenceRef.current || !playerId) return setError('Reference sound is still loading. Try this take again.');
       try {
-        const result = scoreTake(pcm16ToFloat(pcm), 22_050, referenceRef.current);
+        const result = await scoreTakeAsync(pcm16ToFloat(pcm), 22_050, referenceRef.current);
+        if (roundRef.current !== scoringRound) return;
 
         setScores((previous) => ({ ...previous, [playerId]: result }));
         if (send({ type: 'round:score', round: roundRef.current, playerId, score: result.total,
@@ -434,8 +457,9 @@ export default function RoomApp() {
 
   </div>;
 
-  return <main className="room-app">
-    <header className="room-header"><a href="/" className="room-brand">VEEL <em>VEEL</em></a><span>LIVE VOICE PARTY · {host ? 'HOST SCREEN' : 'PHONE MIC'}</span></header>
+  return <main className={`room-app ${phase !== "lobby" ? "is-in-round" : ""}`}>
+    <header className="room-header"><a href="/" className="room-brand"><img src={micLogo} className="voice-brand-icon" alt=""/>VEEL <em>VEEL</em></a><span>LIVE VOICE PARTY · {host ? 'HOST SCREEN' : 'PHONE MIC'}</span></header>
+    {calibrating && <p role="status" className="party-status">Stay quiet for one second · measuring room noise…</p>}
     {error && <div role="alert" className="room-error">{error}</div>}
     {status !== 'connected' && <section className="room-entry">
       <span className="room-kicker">{host ? 'RUN THE SHOW' : 'STEP UP TO THE MIC'}</span>
@@ -453,15 +477,17 @@ export default function RoomApp() {
       {host && <nav className="party-host-actions" aria-label="Host controls">{phase === 'lobby' && (<button className="room-primary" disabled={players.filter((player) => player.ready && player.connected).length < 2 || !pack} onClick={() => void beginRound()}>START THE SHOW ↗</button>)}{phase === 'reveal' && (host && <button className="room-primary" onClick={() => void beginRound()}>{round !== null && round + 1 >= rounds ? 'FINAL RESULTS ↗' : 'NEXT SOUND ↗'}</button>)}</nav>}
       {phase !== 'lobby' && me && !mic && <button className="room-primary" onClick={() => void openMic()}>RECONNECT MICROPHONE</button>}
       <section className="party-voice" aria-label="Party voice chat"><div><b>PARTY VOICE CHAT</b><small>{phase === 'perform' && !replaying ? 'Auto-muted for listening and singing' : 'Talk with your party · audio is never saved'}</small></div><label>Voice mode<select value={voiceMode} onChange={(e) => { setVoiceMode(e.target.value as 'off' | 'always' | 'push'); void openMic(); }}><option value="off">Off</option><option value="always">Always on</option><option value="push">Push to talk</option></select></label>{voiceMode === 'push' && <button disabled={phase === 'perform' && !replaying} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setPushing(true); }} onPointerUp={() => setPushing(false)} onPointerCancel={() => setPushing(false)} onBlur={() => setPushing(false)} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') setPushing(true); }} onKeyUp={() => setPushing(false)}>HOLD TO TALK 🎙</button>}</section>
-      <section className="room-code-bar"><div><span>ROOM CODE</span><strong>{code}</strong></div><div><span>{players.length} / 5 SINGERS</span><b>{phase.toUpperCase()}</b></div><button onClick={leave}>LEAVE</button></section>
-      {phase === 'perform' && <div className="party-live-banner" role="status">{recording ? '● RECORDING — SING NOW!' : replaySinger ? `${players.find((p) => p.id === replaySinger)?.name ?? 'Singer'} · ${reaction === null ? 'LISTEN TO THEIR TAKE' : `${reaction} POINTS`}` : step}</div>}
+      <section className="room-code-bar"><div><span>ROOM CODE</span><strong>{code}</strong></div><div><span>{players.length} / 5 SINGERS</span><b>{phase === 'perform' ? recording ? 'RECORDING' : replaying ? 'ON STAGE' : studioPhase.toUpperCase() : phase.toUpperCase()}</b></div><button onClick={leave}>LEAVE</button></section>
+      {phase === 'perform' && !replaying && <RecordingStudio phase={submitted ? 'sent' : studioPhase} title={clip?.title ?? 'Mimic the voice'} level={recording ? level : studioPhase === 'listen' ? playbackLevel : 0} deadline={deadline} duration={studioPhase === 'countdown' ? 3 : studioPhase === 'record' ? Math.max(3, clip?.durationSeconds ?? 3) : clip?.durationSeconds ?? 1} participant={Boolean(me && myTurn && mic)} />}
+      {phase === 'perform' && replaying && <div className="party-live-banner" role="status">{players.find((p) => p.id === replaySinger)?.name ?? 'Singer'} · {reaction === null ? 'LISTEN TO THEIR TAKE' : `${reaction} / 100${reaction === 0 ? ' · NO AUDIBLE TAKE' : ''}`}</div>}
       {host && phase === 'lobby' && <section className="room-invite">{inviteQr && <img src={inviteQr} width="142" height="142" alt={`Scan to join room ${code}`} />}<div><span>SCAN OR SHARE WITH PHONES</span><a href={joinUrl}>{joinUrl}</a><button onClick={() => void navigator.clipboard.writeText(joinUrl)}>COPY LINK ↗</button>{shareChoices.length > 1 && <label>NETWORK ADDRESS<select aria-label="Network address for invite link" value={shareOrigin} onChange={(event) => setShareOrigin(event.target.value)}>{shareChoices.map((choice) => <option key={choice.origin} value={choice.origin}>{choice.label}</option>)}</select></label>}</div></section>}
       {phase === 'lobby' && <section className="room-lobby">
         <div><span className="room-kicker">THE GREEN ROOM</span><h2>THE <em>LINEUP.</em></h2><div className="room-players">{players.map((player) => <div key={player.id} className="room-player"><i style={{ background: playerTokens[player.colorToken]!.color }} /> <b>{player.name}{player.hostPlayer ? ' · HOST' : ''}</b><small>{player.connected ? player.ready ? 'READY ✓' : 'GETTING READY' : 'OFFLINE'}</small></div>)}</div>{players.length === 0 && <p>Join as a singer here, or invite someone by phone.</p>}</div>
         {host ? <aside className="room-control">{!me ? <div className="room-host-seat"><label>YOUR STAGE NAME<input maxLength={24} value={name} onChange={(event) => setName(event.target.value)} placeholder="Host" /></label><button className="room-secondary" disabled={players.length >= 5} onClick={joinHostSinger}>JOIN AS SINGER 🎙</button></div> : <div className="room-host-seat"><small>YOU ARE IN THE LINEUP</small><div className="room-meter"><i style={{ width: `${Math.min(100, level * 100)}%` }}/></div><button className="room-secondary" disabled={Boolean(mic)} onClick={() => void openMic()}>{mic ? 'MIC CONNECTED ✓' : 'CONNECT MICROPHONE 🎙'}</button><button className="room-secondary" disabled={!mic} onClick={() => send({ type: 'room:ready', ready: !me.ready })}>{me.ready ? 'READY ✓ · TAP TO UNREADY' : 'I AM READY ↗'}</button></div>}<label>SOUNDS<select value={packFilter} onChange={(e) => setPackFilter(e.target.value)}><option value="mix">Tamil + English vocals</option><option value="en">English meme vocals</option><option value="ta">Tamil meme vocals</option></select></label><label>ROUNDS<select value={rounds} onChange={(event) => setRounds(Number(event.target.value) as 5 | 8 | 12)}><option value={5}>5 rounds</option><option value={8}>8 rounds</option><option value={12}>12 rounds</option></select></label><small>{pack?.clips.length ?? '…'} sounds in this pack</small><small>2–5 ready singers · headphones recommended</small></aside> : <aside className="room-control"><div className="room-meter"><i style={{ width: `${Math.min(100, level * 100)}%` }}/></div><button className="room-secondary" disabled={Boolean(mic)} onClick={() => void openMic()}>{mic ? 'MIC CONNECTED ✓' : 'CONNECT MICROPHONE 🎙'}</button><button className="room-primary" disabled={!mic} onClick={() => send({ type: 'room:ready', ready: !me?.ready })}>{me?.ready ? 'READY ✓ · TAP TO UNREADY' : 'I AM READY ↗'}</button><p>Hold your phone close to your mouth and use headphones if the room is loud.</p></aside>}
       </section>}
-      {phase !== 'lobby' && <section className="room-stage"><Suspense fallback={<div className="room-stage-loading">SETTING THE STAGE…</div>}>{new URLSearchParams(location.search).has("e2e") ? <div className="arena-canvas arena-static-stage" aria-label="Party stage" /> : <ArenaCanvas themeId="festival" score={reaction ?? 55} active={phase === 'perform' && reaction === null && (replaying || recording || stageLevel > 0.04)} level={replaying ? playbackLevel : Math.max(stageLevel, level)} activeSinger={players.find((p) => p.id === replaySinger)?.colorToken ?? -1} />}</Suspense></section>}
-      {phase === 'perform' && <section className="room-round"><span className="room-kicker">ROUND {String((round ?? 0) + 1).padStart(2, '0')} / {rounds} · {mode === 'turns' ? 'TAKE TURNS' : 'ALL AT ONCE'}</span><h2>HEAR IT.<br/><em>BECOME IT.</em></h2><h3>{clip?.title || "Mimic the voice"}</h3><p>{host ? me ? 'The sound and recording start automatically for everyone.' : mode === 'turns' ? `${activePlayer?.name ?? 'The singers'} is on the mic. Each ready singer gets a turn.` : 'Everyone listens together, then sings together. Each take plays before its score.' : !hostConnected ? 'The host is reconnecting. Hold your take for a moment.' : mode === 'turns' && !myTurn ? `Wait for ${activePlayer?.name ?? 'the next singer'} to finish. Your turn is coming.` : 'Listen together. Singing starts automatically after the countdown.'}</p><p className="party-status" role="status">{step}</p>{replaySinger && <h3>{players.find((p) => p.id === replaySinger)?.name} {reaction === null ? '· ON STAGE 🎙' : `· ${reaction} POINTS ${reaction >= 80 ? '👏 STANDING OVATION' : reaction < 40 ? '🍅 TOMATO TIME' : '✨ NICE TRY'}`}</h3>}{host ? <><div className="room-players">{players.map((player) => <div key={player.id} className="room-player"><i style={{ background: playerTokens[player.colorToken]!.color, transform: `scale(${1 + (liveLevels[player.id] ?? 0)})` }}/><b>{player.name}</b><small>{player.roundScore !== null ? `${player.roundScore} PTS` : !player.connected ? 'OFFLINE' : activePlayerId === player.id ? 'ON THE MIC 🎙' : 'WAITING FOR TAKE'}</small></div>)}</div>{me && takeControls}<button className="room-primary" disabled={replaying || Object.keys(scores).length === 0} onClick={() => round !== null && send({ type: 'round:reveal', round })}>PLAY AVAILABLE TAKES ↗</button></> : takeControls}</section>}
+      {(phase === 'reveal' || phase === 'results' || replaying) && <section className="room-stage"><Suspense fallback={<div className="room-stage-loading">SETTING THE STAGE…</div>}>{new URLSearchParams(location.search).has("e2e") ? <div className="arena-canvas arena-static-stage" aria-label="Party stage" /> : <ArenaCanvas themeId="festival" score={reaction ?? 55} active={phase === 'perform' && reaction === null && (replaying || recording || stageLevel > 0.04)} level={replaying ? playbackLevel : Math.max(stageLevel, level)} activeSinger={players.find((p) => p.id === replaySinger)?.colorToken ?? -1} />}</Suspense></section>}
+      {phase === 'perform' && !replaying && <section className={`room-round ${!replaying ? 'room-round-secondary' : ''}`}><span className="room-kicker">ROUND {String((round ?? 0) + 1).padStart(2, '0')} / {rounds} · {mode === 'turns' ? 'TAKE TURNS' : 'ALL AT ONCE'}</span><h2>THE LIVE SHOW.</h2><h3>{clip?.title || "Mimic the voice"}</h3><p>{host ? me ? 'The sound and recording start automatically for everyone.' : mode === 'turns' ? `${activePlayer?.name ?? 'The singers'} is on the mic. Each ready singer gets a turn.` : 'Everyone listens together, then sings together. Each take plays before its score.' : !hostConnected ? 'The host is reconnecting. Hold your take for a moment.' : mode === 'turns' && !myTurn ? `Wait for ${activePlayer?.name ?? 'the next singer'} to finish. Your turn is coming.` : 'Listen together. Singing starts automatically after the countdown.'}</p><p className="party-status" role="status">{step}</p>{replaySinger && <h3>{players.find((p) => p.id === replaySinger)?.name} {reaction === null ? '· ON STAGE 🎙' : `· ${reaction} POINTS ${reaction >= 80 ? '👏 STANDING OVATION' : reaction < 40 ? '🍅 TOMATO TIME' : '✨ NICE TRY'}`}</h3>}{host ? <><div className="room-players">{players.map((player) => <div key={player.id} className="room-player"><i style={{ background: playerTokens[player.colorToken]!.color, transform: `scale(${1 + (liveLevels[player.id] ?? 0)})` }}/><b>{player.name}</b><small>{player.roundScore !== null ? `${player.roundScore} PTS` : !player.connected ? 'OFFLINE' : activePlayerId === player.id ? 'ON THE MIC 🎙' : 'WAITING FOR TAKE'}</small></div>)}</div>{me && takeControls}<button className="room-primary" disabled={replaying || Object.keys(scores).length === 0} onClick={() => round !== null && send({ type: 'round:reveal', round })}>PLAY AVAILABLE TAKES ↗</button></> : takeControls}</section>}
+      {phase === 'perform' && replaying && <TakeComparison reference={referenceRef.current} take={replayEnvelope} score={reaction} name={players.find(p => p.id === replaySinger)?.name ?? 'Singer'} judges={players.find(p => p.id === replaySinger)?.judges ?? null} />}
       {phase === 'reveal' && <section className="room-round"><span className="room-kicker">JUDGES HAVE SPOKEN</span><h2>THE <em>SCORES.</em></h2><div className="room-players">{[...players].sort((a,b) => b.score - a.score).map((player, index) => <div key={player.id} className="room-player room-result"><strong>{index + 1}</strong><div className="room-result-body"><div><b>{player.name}</b><small>{player.score} PTS TOTAL · {player.roundScore ?? 0} THIS ROUND</small></div>{player.judges && <div className="room-judges">{Object.entries(player.judges).map(([judge, value]) => <span key={judge}>{judge.toUpperCase()} <b>{value}</b></span>)}</div>}</div></div>)}</div></section>}
       {phase === 'results' && <section className="room-round"><span className="room-kicker">THE FINAL PODIUM</span><h2>ABSOLUTE<br/><em>LEGENDS.</em></h2><div className="room-players">{[...players].sort((a,b) => b.score - a.score).map((player, index) => <div key={player.id} className="room-player"><strong>{['🏆','🥈','🥉'][index] ?? index + 1}</strong><b>{player.name}</b><small>{player.score} PTS</small></div>)}</div><button className="room-secondary" onClick={leave}>BACK TO HOME ↗</button></section>}
     </>}

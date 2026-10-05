@@ -1,6 +1,10 @@
 # Hosting Veel Veel
 
-## Current public playtest
+## Live game
+
+Play at https://veel-veel.onrender.com. Render hosts the game and room relay on the free plan; idle services can take about a minute to wake. The full 590-clip bundle is included in the Docker image.
+
+## Optional local public playtest
 
 Build with `pnpm build`, then run `powershell -ExecutionPolicy Bypass -File scripts/start-public.ps1`. The script starts the production server on port 8788 and a Cloudflare Quick Tunnel as hidden background processes. It prints the temporary HTTPS URL and records it in `.cache/public-url.txt`. Process IDs and logs are in `.cache/public-processes.json`, `.cache/public-server*.log` and `.cache/public-tunnel*.log`.
 

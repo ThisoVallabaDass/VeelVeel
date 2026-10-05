@@ -1,3 +1,5 @@
+import micLogo from '../assets/veel-mic.png';
+import { RecordingStudio } from './RecordingStudio.js';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { MicCapture, playClip, playTake, scoreTake } from '../audio/mic.js';
@@ -14,6 +16,7 @@ import { en } from '../content/strings/en.js';
 import { useGame } from '../state/game.js';
 
 interface PackClip {
+  title?: string;
   id: string;
   audio: string;
   features: string;
@@ -333,6 +336,7 @@ export default function App() {
       await openMic();
       return;
     }
+    await mic.calibrate();
     const samples: number[] = [];
     const timer = window.setInterval(() => samples.push(mic.meter()), 80);
     await new Promise((resolve) => window.setTimeout(resolve, 900));
@@ -405,7 +409,7 @@ export default function App() {
       return;
     }
     mic.start();
-    playCue('record');
+
     setSeconds(0);
     setTakeLevels([]);
     setRecording(true);
@@ -485,7 +489,7 @@ export default function App() {
   const renderTop = (right?: ReactNode) => (
     <header className="topbar">
       <button className="brand" onClick={() => setScreen('home')} aria-label="Veel Veel home">
-        <span className="brand-mark">VV</span>
+        <img className="voice-brand-icon" src={micLogo} alt="" />
         <span>
           VEEL<span className="brand-light">VEEL</span>
           <small>THE VOICE PARTY</small>
@@ -1005,7 +1009,7 @@ export default function App() {
               <i>/ {String(rounds).padStart(2, '0')}</i>
             </div>,
           )}
-          <section className="game-layout">
+          <section className={`game-layout ${recording ? "is-recording" : ""}`}>
             <div className="game-heading">
               <div>
                 <span className="micro-label">
@@ -1155,34 +1159,7 @@ export default function App() {
                   </button>
                 </div>
               )}
-              {recording && (
-                <div className="record-state">
-                  <div className="record-status">
-                    <span>
-                      <i /> RECORDING YOUR TAKE
-                    </span>
-                    <b>
-                      00:
-                      {String(Math.max(0, Math.ceil(recordingDuration - seconds))).padStart(2, '0')}
-                    </b>
-                  </div>
-                  <div className="take-wave">
-                    {Array.from({ length: 42 }, (_, i) => (
-                      <i
-                        key={i}
-                        style={
-                          {
-                            '--wave': `${15 + meter * (22 + Math.abs(Math.sin(i * 2.3)) * 65)}%`,
-                          } as React.CSSProperties
-                        }
-                      />
-                    ))}
-                  </div>
-                  <button className="btn btn-outline" onClick={finishRecording}>
-                    DONE EARLY ↗
-                  </button>
-                </div>
-              )}
+              {recording && <RecordingStudio phase="record" title={clip?.title ?? 'Your take'} level={meter} deadline={Date.now() + (recordingDuration - seconds) * 1000} duration={recordingDuration} onFinish={finishRecording} />}
               {phase === 'reveal' && (
                 <div className="reveal-state">
                   <div className={`big-score${score && score.total > 84 ? ' score-hot' : ''}`}>

@@ -1,6 +1,6 @@
 # Veel Veel build status
 
-Updated 4 October 2026.
+Updated 5 October 2026.
 
 ## Playable now
 
@@ -11,18 +11,21 @@ Updated 4 October 2026.
 - The stage appears on host and player screens. Articulated singers walk/sway/sing, replay mouths follow playback amplitude, cheering crowds stand and wave, high scores trigger confetti, and low scores trigger flying tomatoes. Reduced-motion preferences are respected.
 - 590 indexed clips in this workspace; 452 meet default duration/flag eligibility. The existing 534 Tamil clips are preserved. 56 new labelled vocal excerpts were imported (55 eligible; the silent “You are my sunshine” excerpt is excluded): 45 entries in the English meme category and 11 Tamil entries. The English meme category includes some internationally circulated, non-English vocals. The room default selects from curated vocals, with English/Tamil filters and no repeats within a setlist.
 - Sources include the owner's two playlists, sixteen vocal cuts from the timestamped compilation, the requested Tamil short/template, and a related “What the dog doin?” clip found through search. Mechanical/startup/glass/pipe effects were excluded. Metadata, source URLs and cut times live in `scripts/sound-sources.json`; `python scripts/import-sounds.py` reproduces the ignored media.
-- The Node production server serves both game assets and rooms over one HTTPS origin through a temporary Cloudflare tunnel. Current link: https://network-european-mixing-restoration.trycloudflare.com . This is a running playtest, dependent on this computer remaining awake/online. Permanent hosting has not been provisioned.
+- The live game is hosted at https://veel-veel.onrender.com on a free Render Docker service, with the complete sound bundle and WebSocket rooms on the same HTTPS origin. It does not depend on the owner's computer.
+- Recording has a separate studio with explicit listen/countdown/record/submitted states, microphone activity history, a sound-detection message and an amplitude-driven character. Replays show original/take loudness contours and judge breakdowns. The microphone logo is bundled with the application.
+- Room mic setup measures a quiet baseline for 900 ms. A take needs at least 120 ms and 8% activity above an absolute/calibrated threshold before trimming. Room DSP runs in workers to avoid blocking capture timers and animations. This is an activity gate, not speech recognition: nearby voices can still be picked up.
 
 ## Verification
 
-- Eighteen Vitest checks pass, including real-pack DSP and relay tests for minimum players, voice gating, score masking, and replay-before-score ordering.
+- Twenty-two Vitest checks pass, including real-pack DSP, silence/hiss/DC/click rejection, calibrated hum rejection, and relay tests for minimum players, voice gating, score masking, and replay-before-score ordering.
 - TypeScript and ESLint pass. The production build passes. Arena code remains lazy-loaded (about 134 kB gzip); the main bootstrap is about 130 kB gzip.
 - Two-player and five-player Chromium room tests passed through the public HTTPS endpoint, including automatic singing, host participation, full-room rejection, revealed judge scores and reconnect identity. All four browser tests passed through the public endpoint, including a complete five-round local game.
+- The October 5 studio update passed the full local-game browser test and all four room tests against a local production build. The added test feeds background hum through real browser microphone capture and verifies zero points for both singers. Mobile recording screenshots use a 390-pixel viewport; physical-phone testing is still manual.
 - A real Three.js page was rendered and captured at `docs/screens/15-public-home-3d.png` without page errors. This headless software-rendering run measured about 15 FPS; it is not an integrated-GPU or mobile performance result. Hardware FPS/draw-call targets remain unverified.
 
 ## Remaining boundaries
 
-- Permanent cloud hosting needs the owner's hosting account/repository connection; `render.yaml`, `Dockerfile` and `docs/DEPLOY.md` prepare that path. The current temporary link changes when its tunnel restarts.
+- Render free-tier cold starts and in-memory rooms remain availability limits. The live deployment uses one instance; restarts clear rooms.
 - Source provenance is retained, but YouTube redistribution rights are not verified. Use cleared media for permanent public release. Media is gitignored. Local builds can generate demos; production Docker builds now require a verified sound bundle URL and cannot silently fall back. The 590-clip bundle is published as GitHub release soundpack-v1; its URL and SHA-256 are configured in render.yaml. The code is pushed to ThisoVallabaDass/VeelVeel.
 - The requested “Azhuga onnum venam okay” short is included as a labelled opening excerpt. Exact phrase boundaries still need a Tamil speaker's audition; automatic captions did not provide a reliable alignment.
 - Synchronization uses buffered playback and a shared lead interval, not clock-synchronized sample scheduling. Physical iOS/Android microphone, speaker feedback and geographically separated voice-chat testing remain manual checks. Headphones are recommended.

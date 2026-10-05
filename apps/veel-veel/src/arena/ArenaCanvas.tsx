@@ -439,7 +439,7 @@ export default function ArenaCanvas({
           rig.rightArm.rotation.x = singing ? -1.1 + Math.sin(t * 12) * 0.18 : stride * 0.23;
           rig.leftArm.rotation.z = dance ? -0.8 + Math.sin(t * 10) * 0.32 : 0.08;
           rig.rightArm.rotation.z = dance ? 0.8 - Math.sin(t * 10) * 0.32 : -0.08;
-          rig.mouth.scale.y = singing ? 0.4 + Math.min(1, stageLevel * 2.5) * 2.3 + Math.abs(Math.sin(t * 14)) * 0.4 : 0.25;
+          rig.mouth.scale.y = singing ? 0.15 + Math.min(1, stageLevel * 2.5) * 2.8 : 0.25;
           rig.browLeft.position.y = 2.42 + (singing ? Math.min(0.1, stageLevel * 0.3) : 0);
           rig.browRight.position.y = rig.browLeft.position.y;
           rig.head.rotation.z = flop && lead ? -0.23 : singing ? Math.sin(t * 4) * 0.065 : 0;
@@ -479,8 +479,9 @@ export default function ArenaCanvas({
         }
         pink.intensity = 29 + Math.sin(t * 1.4) * 5;
         gold.intensity = 27 + Math.cos(t) * 4;
-        camera.position.x = Math.sin(t * 0.14) * 0.2;
-        camera.position.z += ((stageActive ? 17.6 : 19) - camera.position.z) * 0.035;
+        camera.position.x += ((stageActive && leadSinger >= 0 ? (rigs[leadSinger]?.homeX ?? 0) * 0.5 : 0) - camera.position.x) * 0.025;
+        camera.lookAt(0, 1.6, 0);
+        camera.position.z += ((stageActive ? 13.5 : 19) - camera.position.z) * 0.035;
         if (frame % 4 === 0) {
           confetti.rotation.y += 0.008;
           confetti.position.y = Math.sin(t) * 0.12;

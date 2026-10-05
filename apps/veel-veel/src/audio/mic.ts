@@ -1,5 +1,6 @@
 import {
   extractFeatures,
+  hasAudibleTake,
   pcm16ToFloat,
   resampleMono,
   scoreFeatures,
@@ -15,6 +16,8 @@ export class MicCapture {
   private analyser?: AnalyserNode;
   private chunks: Float32Array[] = [];
   private capturing = false;
+  private noiseFloor = 0;
+  private calibration: number[] | null = null;
   onAudio?: (samples: Float32Array, sampleRate: number) => void;
 
   async open(deviceId?: string) {
@@ -43,19 +46,32 @@ export class MicCapture {
     source.connect(this.node).connect(mute).connect(this.context.destination);
     source.connect(this.analyser);
     this.node.port.onmessage = (event: MessageEvent<Float32Array>) => {
+      if (this.calibration) {
+        const data = event.data;
+        const mean = data.reduce((sum, x) => sum + x, 0) / Math.max(1, data.length);
+        this.calibration.push(Math.sqrt(data.reduce((sum, x) => sum + (x - mean) ** 2, 0) / Math.max(1, data.length)));
+      }
       if (this.capturing) this.chunks.push(new Float32Array(event.data));
       this.onAudio?.(event.data, this.sampleRate);
     };
     await this.context.resume();
   }
 
+  async calibrate() {
+    this.calibration = [];
+    await new Promise((resolve) => window.setTimeout(resolve, 900));
+    const levels = this.calibration.sort((a, b) => a - b);
+    this.noiseFloor = levels[Math.floor(levels.length * 0.35)] ?? 0;
+    this.calibration = null;
+  }
+
   meter() {
     if (!this.analyser) return 0;
-    const bytes = new Uint8Array(this.analyser.fftSize);
-    this.analyser.getByteTimeDomainData(bytes);
+    const bytes = new Float32Array(this.analyser.fftSize);
+    this.analyser.getFloatTimeDomainData(bytes);
     let energy = 0;
-    for (const value of bytes) energy += ((value - 128) / 128) ** 2;
-    return Math.min(1, Math.sqrt(energy / bytes.length) * 4.2);
+    for (const value of bytes) energy += value ** 2;
+    return Math.min(1, Math.max(0, Math.sqrt(energy / bytes.length) - Math.max(0.006, this.noiseFloor * 2.8)) * 6);
   }
 
   start() {
@@ -72,7 +88,7 @@ export class MicCapture {
       offset += chunk.length;
     }
     this.chunks = [];
-    return buffer;
+    return hasAudibleTake(buffer, this.sampleRate, this.noiseFloor) ? buffer : new Float32Array(buffer.length);
   }
   close() {
     this.capturing = false;
@@ -175,7 +191,8 @@ export function scoreTake(
   reference: AudioFeatures,
 ): ScoreBreakdown {
   const resampled = resampleMono(samples, inputRate, 22_050);
-  const trimmed = trimSilence(resampled, 22_050, -43, 50).samples;
+  const audible = hasAudibleTake(resampled, 22_050);
+  const trimmed = audible ? trimSilence(resampled, 22_050, -43, 50).samples : new Float32Array();
   // Keep the game path byte-for-byte aligned with the documented 22.05 kHz PCM16 capture target.
   const pcm = toPcm16(trimmed, 8, 22_050);
   const take = extractFeatures(pcm16ToFloat(pcm), 22_050);

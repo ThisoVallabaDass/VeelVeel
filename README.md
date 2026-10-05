@@ -1,5 +1,7 @@
 # Veel Veel
 
+[Play online](https://veel-veel.onrender.com/) · 2–5 singers · free hosting
+
 [Deploy to Render](https://render.com/deploy?repo=https://github.com/ThisoVallabaDass/VeelVeel)
 
 Uses the checked-in Docker/Render configuration. The sound-bundle URL and checksum are already configured. Sign into Render, review the free service, and deploy.

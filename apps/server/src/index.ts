@@ -271,7 +271,7 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
       broadcast(room, { type: 'round:go', round: room.round!, delayMs: 1500, durationSeconds: room.clip!.durationSeconds });
       room.loaded.clear();
       // A dropped connection or failed microphone must not hold the party forever.
-      room.timers.push(setTimeout(() => replayRound(room), (room.clip!.durationSeconds * 2 + 20) * 1000));
+      room.timers.push(setTimeout(() => replayRound(room), (room.clip!.durationSeconds * 2 + 50) * 1000));
     }
     return;
   }

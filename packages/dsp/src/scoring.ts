@@ -98,7 +98,7 @@ export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): Sc
   const active = got.filter((frame) => energyOf(frame) > SCORING_CONFIG.silenceRms);
   const meanRms =
     active.reduce((sum, frame) => sum + energyOf(frame), 0) / Math.max(1, active.length);
-  if (active.length < Math.max(4, got.length * 0.08) || meanRms < 0.002) {
+  if (active.length < Math.max(12, got.length * 0.08) || meanRms < 0.006) {
     return {
       total: 0,
       rhythm: 0,
@@ -159,7 +159,7 @@ export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): Sc
   const refMfcc = ref.map((frame) => frame.mfcc.slice(1, 8));
   const takeMfcc = got.map((frame) => frame.mfcc.slice(1, 8));
   const vibeCost = dtw(refMfcc, takeMfcc, vectorDistance).cost;
-  const vibe = clamp(100 * Math.exp(-Math.min(4, vibeCost) * 0.04));
+  const vibe = clamp(100 * Math.exp(-vibeCost * 0.12));
   // When one device cannot track the source pitch, corroborating timbre and
   // energy contours can still recognize the same voice shape.
   if (
