@@ -19,7 +19,7 @@ interface GameState {
   reducedMotion: boolean;
   setScreen: (screen: Screen) => void;
   setPlayers: (players: Player[]) => void;
-  setRounds: (rounds: 5 | 8 | 12) => void;
+  setRounds: (rounds: 5 | 7 | 10 | 15) => void;
   startGame: () => void;
   setPhase: (phase: GameState['phase']) => void;
   addScore: (value: number) => void;

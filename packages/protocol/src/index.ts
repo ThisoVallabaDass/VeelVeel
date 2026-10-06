@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ROOM_VERSION = 5;
+export const ROOM_VERSION = 6;
 export const roomCodeSchema = z.string().regex(/^[ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/);
 const performanceMode = z.enum(['together', 'turns']);
 const judgeScores = z.object({
@@ -21,7 +21,7 @@ export const roomPlayerSchema = z.object({
   judges: judgeScores.nullable(),
 });
 const token = z.string().min(24).max(128);
-const roundNumber = z.number().int().min(0).max(11);
+const roundNumber = z.number().int().min(0).max(14);
 const pcm16 = z.string().min(4).max(470_400).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/);
 const voicePcm = z.string().min(4).max(12000).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/);
 const clip = z.object({
@@ -41,7 +41,7 @@ export const clientRoomMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('room:rejoin'), code: roomCodeSchema, token }),
   z.object({ type: z.literal('room:ready'), ready: z.boolean() }),
   z.object({ type: z.literal('room:leave') }),
-  z.object({ type: z.literal('round:begin'), round: roundNumber, rounds: z.union([z.literal(5), z.literal(8), z.literal(12)]), mode: performanceMode, clip }),
+  z.object({ type: z.literal('round:begin'), round: roundNumber, rounds: z.union([z.literal(5), z.literal(7), z.literal(10), z.literal(15)]), mode: performanceMode, clip }),
   z.object({ type: z.literal('round:reveal'), round: roundNumber }),
   z.object({ type: z.literal('round:finish') }),
   z.object({ type: z.literal('round:score'), round: roundNumber, playerId: z.string().uuid(), score: z.number().int().min(0).max(100), judges: judgeScores }),
@@ -54,13 +54,13 @@ export type ClientRoomMessage = z.infer<typeof clientRoomMessageSchema>;
 export const serverRoomMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('room:created'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, token }),
   z.object({ type: z.literal('room:joined'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, token, playerId: z.string().uuid() }),
-  z.object({ type: z.literal('room:snapshot'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, players: z.array(roomPlayerSchema).max(5), hostConnected: z.boolean(), round: roundNumber.nullable(), rounds: z.union([z.literal(5), z.literal(8), z.literal(12)]), mode: performanceMode, activePlayerId: z.string().uuid().nullable(), clip: clip.nullable(), phase: z.enum(['lobby', 'listen', 'perform', 'reveal', 'results']) }),
+  z.object({ type: z.literal('room:snapshot'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, players: z.array(roomPlayerSchema).max(5), hostConnected: z.boolean(), round: roundNumber.nullable(), rounds: z.union([z.literal(5), z.literal(7), z.literal(10), z.literal(15)]), mode: performanceMode, activePlayerId: z.string().uuid().nullable(), clip: clip.nullable(), nextRoundAt: z.number().nullable(), phase: z.enum(['lobby', 'listen', 'perform', 'reveal', 'results']) }),
   z.object({ type: z.literal('round:go'), round: roundNumber, delayMs: z.number(), durationSeconds: z.number() }),
   z.object({ type: z.literal('take:replay'), round: roundNumber, playerId: z.string().uuid(), pcm16 }),
   z.object({ type: z.literal('voice:audio'), playerId: z.string(), pcm16: voicePcm }),
   z.object({ type: z.literal('room:error'), message: z.string().max(200) }),
   z.object({ type: z.literal('room:closed') }),
-  z.object({ type: z.literal('round:begin'), round: roundNumber, rounds: z.union([z.literal(5), z.literal(8), z.literal(12)]), mode: performanceMode, clip }),
+  z.object({ type: z.literal('round:begin'), round: roundNumber, rounds: z.union([z.literal(5), z.literal(7), z.literal(10), z.literal(15)]), mode: performanceMode, clip }),
   z.object({ type: z.literal('round:reveal'), round: roundNumber }),
   z.object({ type: z.literal('round:finish') }),
   z.object({ type: z.literal('round:score'), round: roundNumber, playerId: z.string().uuid(), score: z.number().int().min(0).max(100), judges: judgeScores }),

@@ -180,10 +180,13 @@ export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): Sc
     ) * 0.45,
   );
   const commitment = clamp(coverage * durationFit);
+  const pitchReliability = Math.min(1, refPitches.length / Math.max(1, ref.length * 0.35));
+  const melodyWeight = SCORING_CONFIG.weights.melody * pitchReliability;
+  const extraShapeWeight = (SCORING_CONFIG.weights.melody - melodyWeight) / 2;
   const weighted = clamp(
-    rhythm * SCORING_CONFIG.weights.rhythm +
-      melody * SCORING_CONFIG.weights.melody +
-      energySimilarity * SCORING_CONFIG.weights.energy +
+    rhythm * (SCORING_CONFIG.weights.rhythm + extraShapeWeight) +
+      melody * melodyWeight +
+      energySimilarity * (SCORING_CONFIG.weights.energy + extraShapeWeight) +
       vibe * SCORING_CONFIG.weights.vibe,
   );
   const partyLift = 100 * Math.pow(weighted / 100, SCORING_CONFIG.partyCurveExponent);
@@ -200,7 +203,7 @@ export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): Sc
       pitchCeiling = clamp(65 + (takeMotion / refMotion) * 35);
   }
   return {
-    total: Math.round(Math.min(pitchCeiling, partyLift * (0.88 + (0.12 * commitment) / 100))),
+    total: Math.round(Math.min(pitchCeiling, partyLift * (0.6 + (0.4 * commitment) / 100) * Math.min(1, take.durationSeconds / Math.max(0.1, reference.durationSeconds * 0.65)))),
     rhythm: Math.round(rhythm),
     melody: Math.round(melody),
     energy: Math.round(energySimilarity),

@@ -83,4 +83,8 @@ describe('audio features and party scoring', () => {
     const silent = analyze(new Float32Array(rate));
     expect(scoreFeatures(analyze(phrase()), silent).total).toBe(0);
   });
+  it('does not reward copying only a tiny fraction of the phrase', () => {
+    const reference = phrase();
+    expect(scoreFeatures(analyze(reference), analyze(reference.slice(0, rate * 0.2))).total).toBeLessThan(30);
+  });
 });

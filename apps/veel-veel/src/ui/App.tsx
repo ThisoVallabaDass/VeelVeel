@@ -488,7 +488,7 @@ export default function App() {
   const pageClass = `app-shell${highContrast ? ' high-contrast' : ''}${reducedMotion ? ' reduce-motion' : ''}`;
   const renderTop = (right?: ReactNode) => (
     <header className="topbar">
-      <button className="brand" onClick={() => setScreen('home')} aria-label="Veel Veel home">
+      <button className="brand" onClick={() => window.location.pathname === '/arena' ? window.location.assign('/') : setScreen('home')} aria-label="Veel Veel home">
         <img className="voice-brand-icon" src={micLogo} alt="" />
         <span>
           VEEL<span className="brand-light">VEEL</span>
@@ -559,7 +559,11 @@ export default function App() {
                 <button
                   key={reaction}
                   className={reaction === arenaDemoReaction ? 'selected' : ''}
-                  onClick={() => setArenaDemoReaction(reaction)}
+                  onClick={() => {
+                    setArenaDemoReaction(reaction);
+                    setArenaDemoScore(reaction.includes('OVATION') ? 95 : reaction.includes('NOD') ? 72 : 25);
+                    setArenaDemoActive(false);
+                  }}
                 >
                   {reaction}
                 </button>
@@ -599,12 +603,12 @@ export default function App() {
               </span>
               <b>{arenaDemoReaction}</b>
               <small>
-                {gameTheme.name.toUpperCase()} · {gameTheme.crowdDensity} INSTANCED FANS
+                {gameTheme.name.toUpperCase()} · {Math.min(gameTheme.crowdDensity, 120)} FANS
               </small>
             </div>
           </div>
           <div className="sandbox-footer">
-            <a href="/?quality=low&amp;e2e=1">← BACK TO THE SHOW</a>
+            <a href="/">← BACK TO THE SHOW</a>
             <span>?quality=low&amp;e2e=1 · Reduced-motion aware</span>
           </div>
         </section>
@@ -633,12 +637,6 @@ export default function App() {
               onClick={() => { window.location.href = '/join'; }}
             >
               ⌕ &nbsp; JOIN ROOM <small>USE A CODE</small>
-            </button>
-            <button
-              className="mode-link"
-              disabled
-            >
-              ✦ &nbsp; DAILY STAGE <small>COMING LATER</small>
             </button>
             <button className="mode-link theme-trigger" onClick={() => setThemeMenu(!themeMenu)}>
               ◈ &nbsp; STAGE <small>{gameTheme.name.toUpperCase()}</small>
@@ -955,9 +953,9 @@ export default function App() {
                 <select
                   aria-label="Round count"
                   value={rounds}
-                  onChange={(event) => setRounds(Number(event.target.value) as 5 | 8 | 12)}
+                  onChange={(event) => setRounds(Number(event.target.value) as 5 | 7 | 10 | 15)}
                 >
-                  {[5, 8, 12].map((count) => (
+                  {[5, 7, 10, 15].map((count) => (
                     <option key={count} value={count}>
                       {count} rounds
                     </option>

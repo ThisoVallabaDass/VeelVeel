@@ -1,6 +1,7 @@
 import {
   extractFeatures,
   hasAudibleTake,
+  filterVoiceNoise,
   pcm16ToFloat,
   resampleMono,
   scoreFeatures,
@@ -88,7 +89,8 @@ export class MicCapture {
       offset += chunk.length;
     }
     this.chunks = [];
-    return hasAudibleTake(buffer, this.sampleRate, this.noiseFloor) ? buffer : new Float32Array(buffer.length);
+    if (!hasAudibleTake(buffer, this.sampleRate, this.noiseFloor)) return new Float32Array(buffer.length);
+    return filterVoiceNoise(buffer, this.sampleRate, this.noiseFloor);
   }
   close() {
     this.capturing = false;

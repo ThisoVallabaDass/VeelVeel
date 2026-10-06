@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { extractFeatures, scoreFeatures } from '@veel-veel/dsp';
+import { extractFeatures, filterVoiceNoise, scoreFeatures } from '@veel-veel/dsp';
 
 interface PackClip {
   id: string;
@@ -53,5 +53,6 @@ describe('real Tamil pack integration', () => {
     expect(
       scoreFeatures(reference, extractFeatures(audio, sampleRate)).total,
     ).toBeGreaterThanOrEqual(95);
+    expect(scoreFeatures(reference, extractFeatures(filterVoiceNoise(audio, sampleRate, 0.005), sampleRate)).total).toBeGreaterThanOrEqual(90);
   });
 });

@@ -30,11 +30,12 @@ type Room = {
   host: WebSocket | null;
   players: Player[];
   round: number | null;
-  rounds: 5 | 8 | 12;
+  rounds: 5 | 7 | 10 | 15;
   mode: 'together' | 'turns';
   activePlayerId: string | null;
   clip: Extract<ClientRoomMessage, { type: 'round:begin' }>['clip'] | null;
   phase: 'lobby' | 'listen' | 'perform' | 'reveal' | 'results';
+  nextRoundAt: number | null;
   touchedAt: number;
   loaded: Set<WebSocket>;
   takes: Map<string, string>;
@@ -75,7 +76,7 @@ function snapshot(room: Room) {
   broadcast(room, {
     type: 'room:snapshot', version: ROOM_VERSION, code: room.code,
     hostConnected: room.host !== null, round: room.round, rounds: room.rounds,
-    mode: room.mode, activePlayerId: room.activePlayerId, clip: room.clip, phase: room.phase,
+    nextRoundAt: room.nextRoundAt, mode: room.mode, activePlayerId: room.activePlayerId, clip: room.clip, phase: room.phase,
     players: room.players.map((player, index) => ({
       id: player.id, name: player.name, colorToken: index, ready: player.ready,
       connected: player.socket !== null, score: player.score - (room.revealed.has(player.id) ? 0 : (player.roundScore ?? 0)),
@@ -144,6 +145,7 @@ function replayRound(room: Room) {
   }
   room.timers.push(setTimeout(() => {
     room.phase = 'reveal';
+    room.nextRoundAt = Date.now() + 6500;
     broadcast(room, { type: 'round:reveal', round: room.round! });
     snapshot(room);
   }, delay));
@@ -154,7 +156,7 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     if (connection) return fail(socket, 'Already in a room.');
     if (rooms.size >= 100) return fail(socket, 'Room server is full. Try later.');
     const room: Room = {
-      code: roomCode(), hostToken: token(), host: null, players: [], round: null, rounds: 5, clip: null,
+      code: roomCode(), hostToken: token(), host: null, players: [], round: null, rounds: 5, clip: null, nextRoundAt: null,
       mode: 'together', activePlayerId: null, phase: 'lobby', touchedAt: Date.now(), loaded: new Set(), takes: new Map(), revealed: new Set(), replaying: false, started: false, timers: [],
     };
     rooms.set(room.code, room);
@@ -234,6 +236,8 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     if ((room.round === null && room.phase !== 'lobby') || (room.round !== null && room.phase !== 'reveal')) return fail(socket, 'Reveal the current round first.');
     if (room.players.filter((item) => item.socket !== null && item.ready).length < 2) return fail(socket, 'At least two ready singers are required.');
     if (room.round !== null && message.round !== room.round + 1) return fail(socket, 'Round number is out of order.');
+    if (message.round >= message.rounds) return fail(socket, 'The set is complete.');
+    if (room.round !== null && message.rounds !== room.rounds) return fail(socket, 'Round count is fixed during the set.');
     if (room.round === null && message.round !== 0) return fail(socket, 'Start at round one.');
     for (const timer of room.timers) clearTimeout(timer);
     room.timers = []; room.loaded.clear(); room.takes.clear(); room.revealed.clear(); room.replaying = false; room.started = false;
@@ -242,6 +246,7 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     room.mode = message.mode;
     room.clip = message.clip;
     room.phase = 'perform';
+    room.nextRoundAt = null;
     room.timers.push(setTimeout(() => replayRound(room), 45000));
     for (const item of room.players) {
       item.submittedRound = null;

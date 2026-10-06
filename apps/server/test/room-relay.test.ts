@@ -65,6 +65,7 @@ test('relay enforces minimum, masks scores, orders replays and gates party voice
   expect(one.messages.filter((m) => ['take:replay', 'round:score', 'round:reveal'].includes(m.type)).map((m) => m.type)).toEqual(['take:replay', 'round:score', 'take:replay', 'round:score', 'round:reveal']);
   const final = one.messages.filter((m) => m.type === 'room:snapshot').at(-1)!;
   expect(final.players.map((p) => p.score)).toEqual([90, 30]);
+  expect(final.nextRoundAt).toBeGreaterThan(Date.now());
 });
 
 

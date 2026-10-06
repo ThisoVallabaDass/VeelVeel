@@ -55,7 +55,11 @@ export default function RoomApp() {
   const [hostConnected, setHostConnected] = useState(true);
   const [phase, setPhase] = useState<'lobby' | 'perform' | 'reveal' | 'results'>('lobby');
   const [round, setRound] = useState<number | null>(null);
-  const [rounds, setRounds] = useState<5 | 8 | 12>(5);
+  const [nextRoundAt, setNextRoundAt] = useState<number | null>(null);
+  const [clock, setClock] = useState(Date.now());
+  const beginRef = useRef<() => void>(() => undefined);
+  const beginBusy = useRef(false);
+  const [rounds, setRounds] = useState<5 | 7 | 10 | 15>(5);
   const [packFilter, setPackFilter] = useState('mix');
   const setlistRef = useRef<PackClip[]>([]);
   const [mode, setMode] = useState<'together' | 'turns'>('together');
@@ -175,6 +179,16 @@ export default function RoomApp() {
     return () => window.clearInterval(meterTimer.current);
   }, [mic, recording]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    if (!host || phase !== 'reveal' || !nextRoundAt || status !== 'connected') return;
+    const timer = window.setTimeout(() => beginRef.current(), Math.max(0, nextRoundAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [host, phase, nextRoundAt, status]);
+
   function send(message: ClientRoomMessage) {
     if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
     socketRef.current.send(JSON.stringify(message));
@@ -234,11 +248,12 @@ export default function RoomApp() {
     }
     if (message.type === 'room:snapshot') {
       setPlayers(message.players);
+      setNextRoundAt(message.nextRoundAt);
       if (host) setPlayerId(message.players.find((player) => player.hostPlayer)?.id ?? '');
       setHostConnected(message.hostConnected);
       setPhase(message.phase === 'listen' ? 'perform' : message.phase);
       setRound(message.round);
-      setRounds(message.rounds);
+      if (!host || message.phase !== 'lobby') setRounds(message.rounds);
       if (!host || message.phase !== 'lobby') setMode(message.mode);
       setActivePlayerId(message.activePlayerId);
       roundRef.current = message.round;
@@ -372,6 +387,7 @@ export default function RoomApp() {
     finally { openingMic.current = false; setCalibrating(false); }
   }
   async function beginRound() {
+    if (beginBusy.current) return;
     unlockAudio();
     if (!pack) return setError('The sound pack is loading.');
     const next = round === null ? 0 : round + 1;
@@ -399,11 +415,14 @@ export default function RoomApp() {
     clipRef.current = nextClip;
     referenceRef.current = null;
     roundRef.current = next;
+    beginBusy.current = true;
     await loadReference(nextClip);
+    beginBusy.current = false;
     if (!referenceRef.current) return;
     send({ type: 'round:begin', round: next, rounds, mode, clip: nextClip });
     playCue('start');
   }
+  beginRef.current = () => { void beginRound(); };
   function startTake() {
     if (!mic || roundRef.current === null || !clip || !myTurn || submitted || recording) return;
     mic.start();
@@ -474,7 +493,7 @@ export default function RoomApp() {
       {status === 'offline' && hasSavedRoom && <button className="room-secondary" onClick={reconnect}>RECONNECT TO ROOM ↗</button>}
     </section>}
     {status === 'connected' && <>
-      {host && <nav className="party-host-actions" aria-label="Host controls">{phase === 'lobby' && (<button className="room-primary" disabled={players.filter((player) => player.ready && player.connected).length < 2 || !pack} onClick={() => void beginRound()}>START THE SHOW ↗</button>)}{phase === 'reveal' && (host && <button className="room-primary" onClick={() => void beginRound()}>{round !== null && round + 1 >= rounds ? 'FINAL RESULTS ↗' : 'NEXT SOUND ↗'}</button>)}</nav>}
+      {host && <nav className="party-host-actions" aria-label="Host controls">{phase === 'lobby' && (<button className="room-primary" disabled={players.filter((player) => player.ready && player.connected).length < 2 || !pack} onClick={() => void beginRound()}>START THE SHOW ↗</button>)}</nav>}
       {phase !== 'lobby' && me && !mic && <button className="room-primary" onClick={() => void openMic()}>RECONNECT MICROPHONE</button>}
       <section className="party-voice" aria-label="Party voice chat"><div><b>PARTY VOICE CHAT</b><small>{phase === 'perform' && !replaying ? 'Auto-muted for listening and singing' : 'Talk with your party · audio is never saved'}</small></div><label>Voice mode<select value={voiceMode} onChange={(e) => { setVoiceMode(e.target.value as 'off' | 'always' | 'push'); void openMic(); }}><option value="off">Off</option><option value="always">Always on</option><option value="push">Push to talk</option></select></label>{voiceMode === 'push' && <button disabled={phase === 'perform' && !replaying} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setPushing(true); }} onPointerUp={() => setPushing(false)} onPointerCancel={() => setPushing(false)} onBlur={() => setPushing(false)} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') setPushing(true); }} onKeyUp={() => setPushing(false)}>HOLD TO TALK 🎙</button>}</section>
       <section className="room-code-bar"><div><span>ROOM CODE</span><strong>{code}</strong></div><div><span>{players.length} / 5 SINGERS</span><b>{phase === 'perform' ? recording ? 'RECORDING' : replaying ? 'ON STAGE' : studioPhase.toUpperCase() : phase.toUpperCase()}</b></div><button onClick={leave}>LEAVE</button></section>
@@ -483,11 +502,12 @@ export default function RoomApp() {
       {host && phase === 'lobby' && <section className="room-invite">{inviteQr && <img src={inviteQr} width="142" height="142" alt={`Scan to join room ${code}`} />}<div><span>SCAN OR SHARE WITH PHONES</span><a href={joinUrl}>{joinUrl}</a><button onClick={() => void navigator.clipboard.writeText(joinUrl)}>COPY LINK ↗</button>{shareChoices.length > 1 && <label>NETWORK ADDRESS<select aria-label="Network address for invite link" value={shareOrigin} onChange={(event) => setShareOrigin(event.target.value)}>{shareChoices.map((choice) => <option key={choice.origin} value={choice.origin}>{choice.label}</option>)}</select></label>}</div></section>}
       {phase === 'lobby' && <section className="room-lobby">
         <div><span className="room-kicker">THE GREEN ROOM</span><h2>THE <em>LINEUP.</em></h2><div className="room-players">{players.map((player) => <div key={player.id} className="room-player"><i style={{ background: playerTokens[player.colorToken]!.color }} /> <b>{player.name}{player.hostPlayer ? ' · HOST' : ''}</b><small>{player.connected ? player.ready ? 'READY ✓' : 'GETTING READY' : 'OFFLINE'}</small></div>)}</div>{players.length === 0 && <p>Join as a singer here, or invite someone by phone.</p>}</div>
-        {host ? <aside className="room-control">{!me ? <div className="room-host-seat"><label>YOUR STAGE NAME<input maxLength={24} value={name} onChange={(event) => setName(event.target.value)} placeholder="Host" /></label><button className="room-secondary" disabled={players.length >= 5} onClick={joinHostSinger}>JOIN AS SINGER 🎙</button></div> : <div className="room-host-seat"><small>YOU ARE IN THE LINEUP</small><div className="room-meter"><i style={{ width: `${Math.min(100, level * 100)}%` }}/></div><button className="room-secondary" disabled={Boolean(mic)} onClick={() => void openMic()}>{mic ? 'MIC CONNECTED ✓' : 'CONNECT MICROPHONE 🎙'}</button><button className="room-secondary" disabled={!mic} onClick={() => send({ type: 'room:ready', ready: !me.ready })}>{me.ready ? 'READY ✓ · TAP TO UNREADY' : 'I AM READY ↗'}</button></div>}<label>SOUNDS<select value={packFilter} onChange={(e) => setPackFilter(e.target.value)}><option value="mix">Tamil + English vocals</option><option value="en">English meme vocals</option><option value="ta">Tamil meme vocals</option></select></label><label>ROUNDS<select value={rounds} onChange={(event) => setRounds(Number(event.target.value) as 5 | 8 | 12)}><option value={5}>5 rounds</option><option value={8}>8 rounds</option><option value={12}>12 rounds</option></select></label><small>{pack?.clips.length ?? '…'} sounds in this pack</small><small>2–5 ready singers · headphones recommended</small></aside> : <aside className="room-control"><div className="room-meter"><i style={{ width: `${Math.min(100, level * 100)}%` }}/></div><button className="room-secondary" disabled={Boolean(mic)} onClick={() => void openMic()}>{mic ? 'MIC CONNECTED ✓' : 'CONNECT MICROPHONE 🎙'}</button><button className="room-primary" disabled={!mic} onClick={() => send({ type: 'room:ready', ready: !me?.ready })}>{me?.ready ? 'READY ✓ · TAP TO UNREADY' : 'I AM READY ↗'}</button><p>Hold your phone close to your mouth and use headphones if the room is loud.</p></aside>}
+        {host ? <aside className="room-control">{!me ? <div className="room-host-seat"><label>YOUR STAGE NAME<input maxLength={24} value={name} onChange={(event) => setName(event.target.value)} placeholder="Host" /></label><button className="room-secondary" disabled={players.length >= 5} onClick={joinHostSinger}>JOIN AS SINGER 🎙</button></div> : <div className="room-host-seat"><small>YOU ARE IN THE LINEUP</small><div className="room-meter"><i style={{ width: `${Math.min(100, level * 100)}%` }}/></div><button className="room-secondary" disabled={Boolean(mic)} onClick={() => void openMic()}>{mic ? 'MIC CONNECTED ✓' : 'CONNECT MICROPHONE 🎙'}</button><button className="room-secondary" disabled={!mic} onClick={() => send({ type: 'room:ready', ready: !me.ready })}>{me.ready ? 'READY ✓ · TAP TO UNREADY' : 'I AM READY ↗'}</button></div>}<label>SOUNDS<select value={packFilter} onChange={(e) => setPackFilter(e.target.value)}><option value="mix">Tamil + English vocals</option><option value="en">English meme vocals</option><option value="ta">Tamil meme vocals</option></select></label><label>ROUNDS<select value={rounds} onChange={(event) => setRounds(Number(event.target.value) as 5 | 7 | 10 | 15)}><option value={5}>5 rounds</option><option value={7}>7 rounds</option><option value={10}>10 rounds</option><option value={15}>15 rounds</option></select></label><small>{pack?.clips.length ?? '…'} sounds in this pack</small><small>2–5 ready singers · headphones recommended</small></aside> : <aside className="room-control"><div className="room-meter"><i style={{ width: `${Math.min(100, level * 100)}%` }}/></div><button className="room-secondary" disabled={Boolean(mic)} onClick={() => void openMic()}>{mic ? 'MIC CONNECTED ✓' : 'CONNECT MICROPHONE 🎙'}</button><button className="room-primary" disabled={!mic} onClick={() => send({ type: 'room:ready', ready: !me?.ready })}>{me?.ready ? 'READY ✓ · TAP TO UNREADY' : 'I AM READY ↗'}</button><p>Hold your phone close to your mouth and use headphones if the room is loud.</p></aside>}
       </section>}
       {(phase === 'reveal' || phase === 'results' || replaying) && <section className="room-stage"><Suspense fallback={<div className="room-stage-loading">SETTING THE STAGE…</div>}>{new URLSearchParams(location.search).has("e2e") ? <div className="arena-canvas arena-static-stage" aria-label="Party stage" /> : <ArenaCanvas themeId="festival" score={reaction ?? 55} active={phase === 'perform' && reaction === null && (replaying || recording || stageLevel > 0.04)} level={replaying ? playbackLevel : Math.max(stageLevel, level)} activeSinger={players.find((p) => p.id === replaySinger)?.colorToken ?? -1} />}</Suspense></section>}
       {phase === 'perform' && !replaying && <section className={`room-round ${!replaying ? 'room-round-secondary' : ''}`}><span className="room-kicker">ROUND {String((round ?? 0) + 1).padStart(2, '0')} / {rounds} · {mode === 'turns' ? 'TAKE TURNS' : 'ALL AT ONCE'}</span><h2>THE LIVE SHOW.</h2><h3>{clip?.title || "Mimic the voice"}</h3><p>{host ? me ? 'The sound and recording start automatically for everyone.' : mode === 'turns' ? `${activePlayer?.name ?? 'The singers'} is on the mic. Each ready singer gets a turn.` : 'Everyone listens together, then sings together. Each take plays before its score.' : !hostConnected ? 'The host is reconnecting. Hold your take for a moment.' : mode === 'turns' && !myTurn ? `Wait for ${activePlayer?.name ?? 'the next singer'} to finish. Your turn is coming.` : 'Listen together. Singing starts automatically after the countdown.'}</p><p className="party-status" role="status">{step}</p>{replaySinger && <h3>{players.find((p) => p.id === replaySinger)?.name} {reaction === null ? '· ON STAGE 🎙' : `· ${reaction} POINTS ${reaction >= 80 ? '👏 STANDING OVATION' : reaction < 40 ? '🍅 TOMATO TIME' : '✨ NICE TRY'}`}</h3>}{host ? <><div className="room-players">{players.map((player) => <div key={player.id} className="room-player"><i style={{ background: playerTokens[player.colorToken]!.color, transform: `scale(${1 + (liveLevels[player.id] ?? 0)})` }}/><b>{player.name}</b><small>{player.roundScore !== null ? `${player.roundScore} PTS` : !player.connected ? 'OFFLINE' : activePlayerId === player.id ? 'ON THE MIC 🎙' : 'WAITING FOR TAKE'}</small></div>)}</div>{me && takeControls}<button className="room-primary" disabled={replaying || Object.keys(scores).length === 0} onClick={() => round !== null && send({ type: 'round:reveal', round })}>PLAY AVAILABLE TAKES ↗</button></> : takeControls}</section>}
       {phase === 'perform' && replaying && <TakeComparison reference={referenceRef.current} take={replayEnvelope} score={reaction} name={players.find(p => p.id === replaySinger)?.name ?? 'Singer'} judges={players.find(p => p.id === replaySinger)?.judges ?? null} />}
+      {phase === 'reveal' && <div className="round-intermission" role="status"><strong>{round !== null && round + 1 >= rounds ? 'FINAL PODIUM' : 'NEXT SOUND'} IN {Math.max(0, Math.ceil(((nextRoundAt ?? clock) - clock) / 1000))}</strong><span>Automatic rounds · stay ready, the show keeps moving</span>{host && <button onClick={() => void beginRound()}>CONTINUE NOW</button>}</div>}
       {phase === 'reveal' && <section className="room-round"><span className="room-kicker">JUDGES HAVE SPOKEN</span><h2>THE <em>SCORES.</em></h2><div className="room-players">{[...players].sort((a,b) => b.score - a.score).map((player, index) => <div key={player.id} className="room-player room-result"><strong>{index + 1}</strong><div className="room-result-body"><div><b>{player.name}</b><small>{player.score} PTS TOTAL · {player.roundScore ?? 0} THIS ROUND</small></div>{player.judges && <div className="room-judges">{Object.entries(player.judges).map(([judge, value]) => <span key={judge}>{judge.toUpperCase()} <b>{value}</b></span>)}</div>}</div></div>)}</div></section>}
       {phase === 'results' && <section className="room-round"><span className="room-kicker">THE FINAL PODIUM</span><h2>ABSOLUTE<br/><em>LEGENDS.</em></h2><div className="room-players">{[...players].sort((a,b) => b.score - a.score).map((player, index) => <div key={player.id} className="room-player"><strong>{['🏆','🥈','🥉'][index] ?? index + 1}</strong><b>{player.name}</b><small>{player.score} PTS</small></div>)}</div><button className="room-secondary" onClick={leave}>BACK TO HOME ↗</button></section>}
     </>}

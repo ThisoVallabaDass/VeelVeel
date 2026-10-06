@@ -3,7 +3,7 @@ export const modes = [
     id: 'mic-drop',
     name: 'Mic Drop',
     subtitle: 'Hear it. Sing it. Own it.',
-    rounds: [5, 8, 12],
+    rounds: [5, 7, 10, 15],
     icon: '🎤',
     tone: 'pink',
   },

@@ -42,3 +42,12 @@
 - **Remove the timbre score's 85-point floor.** The old capped MFCC distance awarded a large contribution even for unrelated audio; the full distance now decays continuously.
 - **Run room scoring in Web Workers.** The host must remain responsive while recording itself and scoring guests. Each request terminates its worker on completion/failure and ignores results from previous rounds.
 - **Use original branding and animation.** The mic logo is generated artwork; the recording character and stage rigs are original code inspired by the supplied gameplay flow. No reference-video assets are extracted.
+
+## 6 October 2026 — automatic sets and foreground crowd
+
+- **Schedule the next round from a shared server reveal deadline.** The host loads the next non-repeating clip after 6.5 seconds, and the existing loaded-client barrier starts everyone together. The final intermission opens the podium. Reconnecting hosts receive the deadline in the snapshot; the room still needs its host and two ready singers.
+- **Offer 5, 7, 10 and 15 rounds consistently.** Protocol version 6 permits round index 14 and keeps the selected set length fixed once play starts. Local mode keeps its pass-the-mic controls.
+- **Place an instanced audience between camera and stage.** The old crowd was hidden behind the back wall, and an incorrect angular layout put every singer on the left. Symmetric slots, proper microphones, standing poses and bright confetti make reactions visible.
+- **Filter captured noise without browser speech processing.** A gentle bandpass and calibrated gate preserve vocal timbre; a 200 ms hold avoids chopping between syllables. The earlier activity gate still rejects silence before normalization. Nearby voices remain a limitation.
+- **Separate exact identity from browser loop-capture validation.** Pure DSP keeps the 95+ identical-source requirement, and filtered aligned source scores 90+. The browser fake microphone loops through calibration and listening, so its cut is not aligned; that end-to-end test expects 80+ plus the correct game flow.
+- **Strengthen short-take penalties and adapt pitch weight.** Attempts below 65% of source duration receive an extra length penalty; weak pitch tracking shifts weight to rhythm and energy instead of a guessed melody score.
