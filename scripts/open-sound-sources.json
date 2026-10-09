@@ -1,0 +1,50 @@
+[
+  {
+    "id": "pd-story-laughter",
+    "filename": "Laughter.ogg",
+    "title": "Story laughter",
+    "category": "laugh",
+    "language": "en",
+    "cutStart": 0,
+    "duration": 6,
+    "rights": "public-domain",
+    "credit": "Ezwa; PDSounds public-domain dedication",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Laughter.ogg"
+  },
+  {
+    "id": "cc0-cartoon-laugh",
+    "filename": "Cartoon_Laugh.ogg",
+    "title": "Cartoon laugh",
+    "category": "laugh",
+    "language": "en",
+    "cutStart": 0,
+    "duration": 6,
+    "rights": "CC0-1.0",
+    "credit": "JohnsonBrandEditing",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Cartoon_Laugh.ogg"
+  },
+  {
+    "id": "pd-crowd-applause",
+    "filename": "Slow_starting_applause.ogg",
+    "title": "Slow crowd applause",
+    "category": "crowd",
+    "language": "en",
+    "cutStart": 8,
+    "duration": 6,
+    "rights": "public-domain",
+    "credit": "Stephan; PDSounds public-domain dedication",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Slow_starting_applause.ogg"
+  },
+  {
+    "id": "cc0-tamil-avar",
+    "filename": "Ta-அவர்.ogg",
+    "title": "அவர் · Tamil pronunciation",
+    "category": "dialogue",
+    "language": "ta",
+    "cutStart": 0,
+    "duration": 1.5,
+    "rights": "CC0-1.0",
+    "credit": "இ.வாஞ்சூர் முகைதீன்",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Ta-அவர்.ogg"
+  }
+]

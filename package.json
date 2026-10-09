@@ -19,6 +19,7 @@
     "format": "prettier --write .",
     "pack:bundle": "tsx scripts/pack-deploy.ts export",
     "pack:restore": "tsx scripts/pack-deploy.ts restore",
+    "pack:add-open-sounds": "tsx scripts/import-open-sounds.ts",
     "labels:apply": "tsx scripts/apply-sound-labels.ts",
     "build:deploy": "pnpm pack:restore && pnpm --filter @veel-veel/client build && pnpm --filter @veel-veel/server build"
   },
