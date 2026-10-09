@@ -21,6 +21,7 @@ import type { StudioPhase } from './RecordingStudio.js';
 interface PackClip {
   id: string;
   title?: string;
+  category?: string;
   language?: string;
   audio: string;
   features: string;
@@ -99,6 +100,10 @@ export default function RoomApp() {
   hearVoiceRef.current = hearVoice && chatAllowed;
   voiceRef.current = status === 'connected' && chatAllowed && (voiceMode === 'always' || voiceMode === 'push' && pushing);
   const [error, setError] = useState('');
+  const [labelVotes, setLabelVotes] = useState<Record<string, number>>({});
+  const [customLabel, setCustomLabel] = useState('');
+  const [labelStatus, setLabelStatus] = useState('');
+  const [labelSubmitted, setLabelSubmitted] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const micRef = useRef<MicCapture | null>(null);
   const clipRef = useRef<RoomClip | null>(null);
@@ -152,6 +157,15 @@ export default function RoomApp() {
       .then(setPack)
       .catch((reason: unknown) => setError(String(reason)));
   }, []);
+  useEffect(() => {
+    if (phase !== 'reveal' || !clip) return;
+    setCustomLabel('');
+    setLabelStatus('');
+    try { setLabelSubmitted(localStorage.getItem(`veel-label:${clip.id}`) === 'sent'); }
+    catch { setLabelSubmitted(false); }
+    fetch('/api/sound-labels').then((response) => response.ok ? response.json() as Promise<Record<string, Record<string, number>>> : null)
+      .then((labels) => setLabelVotes(labels?.[clip.id] ?? {})).catch(() => setLabelVotes({}));
+  }, [phase, clip]);
   useEffect(() => {
     const stored = sessionStorage.getItem(roomKey);
     if (!stored) return;
@@ -237,7 +251,7 @@ export default function RoomApp() {
     if (!referenceRef.current) await loadReference(clipRef.current);
     if (!referenceRef.current) return;
     try {
-      const result = await scoreTakeAsync(decodePcm(message.pcm16), 22_050, referenceRef.current);
+      const result = await scoreTakeAsync(decodePcm(message.pcm16), 22_050, referenceRef.current, clipRef.current.category);
       if (roundRef.current !== message.round) return;
 
       setScores((previous) => ({ ...previous, [message.playerId]: result }));
@@ -430,6 +444,22 @@ export default function RoomApp() {
     setVoiceMode(next);
     setPushing(false);
   }
+  async function submitSoundLabel(category: string) {
+    if (!clip || labelSubmitted || !/^[\p{L}\p{N}][\p{L}\p{N} _'-]{1,31}$/u.test(category.trim())) {
+      if (!labelSubmitted) setLabelStatus('Choose a label between 2 and 32 characters.');
+      return;
+    }
+    setLabelStatus('Sending your label…');
+    try {
+      const response = await fetch('/api/sound-labels', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ clipId: clip.id, category: category.trim() }) });
+      if (!response.ok) throw new Error('Label could not be saved. Please try again.');
+      const result = await response.json() as { votes?: Record<string, number> };
+      setLabelVotes(result.votes ?? {});
+      setLabelSubmitted(true);
+      setLabelStatus('Thanks! Your anonymous vote was added.');
+      try { localStorage.setItem(`veel-label:${clip.id}`, 'sent'); } catch { /* keep the current session usable if storage is disabled */ }
+    } catch (reason) { setLabelStatus(reason instanceof Error ? reason.message : 'Label could not be saved. Please try again.'); }
+  }
   async function beginRound() {
     if (beginBusy.current) return;
     unlockAudio();
@@ -454,7 +484,7 @@ export default function RoomApp() {
     if (!selection) return setError('No eligible sound for this round.');
     const nextClip: RoomClip = {
       id: selection.id, audio: selection.audio, features: selection.features,
-      durationSeconds: Math.min(8, selection.durationSeconds), title: selection.title,
+      durationSeconds: Math.min(8, selection.durationSeconds), title: selection.title, category: selection.category,
     };
     clipRef.current = nextClip;
     referenceRef.current = null;
@@ -490,7 +520,7 @@ export default function RoomApp() {
       if (!referenceRef.current && clipRef.current) await loadReference(clipRef.current);
       if (!referenceRef.current || !playerId) return setError('Reference sound is still loading. Try this take again.');
       try {
-        const result = await scoreTakeAsync(pcm16ToFloat(pcm), 22_050, referenceRef.current);
+        const result = await scoreTakeAsync(pcm16ToFloat(pcm), 22_050, referenceRef.current, clipRef.current?.category);
         if (roundRef.current !== scoringRound) return;
 
         setScores((previous) => ({ ...previous, [playerId]: result }));
@@ -553,7 +583,7 @@ export default function RoomApp() {
       {phase === 'perform' && !replaying && <section className={`room-round ${!replaying ? 'room-round-secondary' : ''}`}><span className="room-kicker">ROUND {String((round ?? 0) + 1).padStart(2, '0')} / {rounds} · {mode === 'turns' ? 'TAKE TURNS' : 'ALL AT ONCE'}</span><h2>THE LIVE SHOW.</h2><h3>{clip?.title || "Mimic the voice"}</h3><p>{host ? me ? 'The sound and recording start automatically for everyone.' : mode === 'turns' ? `${activePlayer?.name ?? 'The singers'} is on the mic. Each ready singer gets a turn.` : 'Everyone listens together, then sings together. Each take plays before its score.' : !hostConnected ? 'The host is reconnecting. Hold your take for a moment.' : mode === 'turns' && !myTurn ? `Wait for ${activePlayer?.name ?? 'the next singer'} to finish. Your turn is coming.` : 'Listen together. Singing starts automatically after the countdown.'}</p><p className="party-status" role="status">{step}</p>{replaySinger && <h3>{players.find((p) => p.id === replaySinger)?.name} {reaction === null ? '· ON STAGE 🎙' : `· ${reaction} POINTS ${reaction >= 80 ? '👏 STANDING OVATION' : reaction < 40 ? '🍅 TOMATO TIME' : '✨ NICE TRY'}`}</h3>}{host ? <><div className="room-players">{players.map((player) => <div key={player.id} className="room-player"><i style={{ background: playerTokens[player.colorToken]!.color, transform: `scale(${1 + (liveLevels[player.id] ?? 0)})` }}/><b>{player.name}</b><small>{player.roundScore !== null ? `${player.roundScore} PTS` : !player.connected ? 'OFFLINE' : activePlayerId === player.id ? 'ON THE MIC 🎙' : 'WAITING FOR TAKE'}</small></div>)}</div>{me && takeControls}<button className="room-primary" disabled={replaying || Object.keys(scores).length === 0} onClick={() => round !== null && send({ type: 'round:reveal', round })}>PLAY AVAILABLE TAKES ↗</button></> : takeControls}</section>}
       {phase === 'perform' && replaying && <TakeComparison reference={referenceRef.current} take={replayEnvelope} score={reaction} name={players.find(p => p.id === replaySinger)?.name ?? 'Singer'} judges={players.find(p => p.id === replaySinger)?.judges ?? null} />}
       {phase === 'reveal' && <div className="round-intermission" role="status"><strong>{round !== null && round + 1 >= rounds ? 'FINAL PODIUM' : 'NEXT SOUND'} IN {Math.max(0, Math.ceil(((nextRoundAt ?? clock) - clock) / 1000))}</strong><span>Automatic rounds · stay ready, the show keeps moving</span>{host && <button onClick={() => void beginRound()}>CONTINUE NOW</button>}</div>}
-      {phase === 'reveal' && <section className="room-round"><span className="room-kicker">JUDGES HAVE SPOKEN</span><h2>THE <em>SCORES.</em></h2><div className="room-players">{[...players].sort((a,b) => b.score - a.score).map((player, index) => <div key={player.id} className="room-player room-result"><strong>{index + 1}</strong><div className="room-result-body"><div><b>{player.name}</b><small>{player.score} PTS TOTAL · {player.roundScore ?? 0} THIS ROUND</small></div>{player.judges && <div className="room-judges">{Object.entries(player.judges).map(([judge, value]) => <span key={judge}>{judge.toUpperCase()} <b>{value}</b></span>)}</div>}</div></div>)}</div></section>}
+      {phase === 'reveal' && <section className="room-round"><span className="room-kicker">JUDGES HAVE SPOKEN</span><h2>THE <em>SCORES.</em></h2><div className="room-players">{[...players].sort((a,b) => b.score - a.score).map((player, index) => <div key={player.id} className="room-player room-result"><strong>{index + 1}</strong><div className="room-result-body"><div><b>{player.name}</b><small>{player.score} PTS TOTAL · {player.roundScore ?? 0} THIS ROUND</small></div>{player.judges && <div className="room-judges">{Object.entries(player.judges).map(([judge, value]) => <span key={judge}>{judge.toUpperCase()} <b>{value}</b></span>)}</div>}</div></div>)}</div>{clip && <section className="sound-label-card" aria-labelledby="sound-label-heading"><div><span className="room-kicker">HELP IMPROVE THE SOUND LIBRARY</span><h3 id="sound-label-heading">What kind of sound was that?</h3><p>Vote anonymously once per sound. Labels help us curate future packs; they do not change the score.</p></div><div className="sound-label-options">{['Laugh', 'Dialogue', 'Catchphrase', 'Singing', 'Sound effect', 'Animal', 'Crowd'].map((category) => <button type="button" key={category} disabled={labelSubmitted} onClick={() => void submitSoundLabel(category)}>{category}{labelVotes[category] ? ` · ${labelVotes[category]}` : ''}</button>)}</div><form className="sound-label-custom" onSubmit={(event) => { event.preventDefault(); void submitSoundLabel(customLabel); }}><label htmlFor="sound-custom-category">Create a category</label><input id="sound-custom-category" maxLength={32} minLength={2} value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} placeholder="e.g. dramatic gasp" disabled={labelSubmitted}/><button type="submit" disabled={labelSubmitted || customLabel.trim().length < 2}>ADD LABEL</button></form><p className="sound-label-status" aria-live="polite">{labelStatus || (labelSubmitted ? 'Your vote is in. Thanks for helping!' : 'Pick the closest match.')}</p></section>}</section>}
       {phase === 'results' && <section className="room-round"><span className="room-kicker">THE FINAL PODIUM</span><h2>ABSOLUTE<br/><em>LEGENDS.</em></h2><div className="room-players">{[...players].sort((a,b) => b.score - a.score).map((player, index) => <div key={player.id} className="room-player"><strong>{['🏆','🥈','🥉'][index] ?? index + 1}</strong><b>{player.name}</b><small>{player.score} PTS</small></div>)}</div><button className="room-secondary" onClick={leave}>BACK TO HOME ↗</button></section>}
     </>}
   </main>;

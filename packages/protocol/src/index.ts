@@ -27,6 +27,7 @@ const pcm16 = z.string().min(4).max(470_400).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-
 const voicePcm = z.string().min(4).max(12000).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/);
 const clip = z.object({
   title: z.string().max(240).optional(),
+  category: z.string().trim().min(2).max(32).optional(),
   id: z.string().min(1).max(128),
   audio: z.string().regex(/^clips\/[A-Za-z0-9_-]+\.wav$/),
   features: z.string().regex(/^features\/[A-Za-z0-9_-]+\.json$/),

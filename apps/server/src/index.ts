@@ -1,14 +1,39 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { readFile, stat } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
-import { resolve, sep, extname } from 'node:path';
+import { resolve, sep, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { clientRoomMessageSchema, ROOM_VERSION } from '@veel-veel/protocol';
 import type { ClientRoomMessage, ServerRoomMessage } from '@veel-veel/protocol';
+
+const labelFile = resolve(process.env.LABELS_FILE ?? '.data/sound-labels.json');
+type LabelVotes = Record<string, Record<string, number>>;
+let labelVotesCache: LabelVotes | null = null;
+let labelWriteQueue = Promise.resolve();
+const labelRateLimits = new Map<string, { since: number; count: number }>();
+async function loadLabelVotes(): Promise<LabelVotes> {
+  if (labelVotesCache) return labelVotesCache;
+  try {
+    const parsed: unknown = JSON.parse(await readFile(labelFile, 'utf8'));
+    labelVotesCache = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as LabelVotes : {};
+  } catch { labelVotesCache = {}; }
+  return labelVotesCache;
+}
+async function addSoundLabel(clipId: string, category: string) {
+  labelWriteQueue = labelWriteQueue.catch(() => undefined).then(async () => {
+    const votes = await loadLabelVotes();
+    const categories = votes[clipId] ?? (votes[clipId] = {});
+    categories[category] = (categories[category] ?? 0) + 1;
+    await mkdir(dirname(labelFile), { recursive: true });
+    await writeFile(labelFile, JSON.stringify(votes, null, 2), 'utf8');
+  });
+  await labelWriteQueue;
+  return (await loadLabelVotes())[clipId];
+}
 
 type Player = {
   id: string;
@@ -371,6 +396,44 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
 
 async function serve(request: IncomingMessage, response: ServerResponse) {
   const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+  if (pathname === '/api/sound-labels' && request.method === 'GET') {
+    response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+    response.end(JSON.stringify(await loadLabelVotes()));
+    return;
+  }
+  if (pathname === '/api/sound-labels' && request.method === 'POST') {
+    const address = request.socket.remoteAddress ?? 'unknown';
+    const now = Date.now();
+    const rate = labelRateLimits.get(address) ?? { since: now, count: 0 };
+    if (now - rate.since > 10 * 60_000) { rate.since = now; rate.count = 0; }
+    rate.count += 1;
+    labelRateLimits.set(address, rate);
+    if (rate.count > 30) { response.writeHead(429).end('Too many labels. Try again later.'); return; }
+    const parts: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of request) {
+      size += Buffer.byteLength(chunk);
+      if (size > 2048) { response.writeHead(413).end('Label is too large.'); return; }
+      parts.push(Buffer.from(chunk));
+    }
+    let body: unknown;
+    try { body = JSON.parse(Buffer.concat(parts).toString('utf8')); }
+    catch { response.writeHead(400).end('Invalid label.'); return; }
+    const data = body as { clipId?: unknown; category?: unknown };
+    if (typeof data.clipId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(data.clipId) ||
+      typeof data.category !== 'string' || !/^[\p{L}\p{N}][\p{L}\p{N} _'-]{1,31}$/u.test(data.category.trim())) {
+      response.writeHead(400).end('Choose a sound and a category from 2 to 32 characters.');
+      return;
+    }
+    try {
+      const votes = await addSoundLabel(data.clipId, data.category.trim().replace(/\s+/g, ' '));
+      response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      response.end(JSON.stringify({ clipId: data.clipId, votes }));
+    } catch {
+      response.writeHead(503).end('Labels could not be saved right now.');
+    }
+    return;
+  }
   if (pathname === '/health') {
     response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
     response.end(JSON.stringify({ service: 'veel-veel', rooms: rooms.size }));

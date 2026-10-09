@@ -191,6 +191,7 @@ export function scoreTake(
   samples: Float32Array,
   inputRate: number,
   reference: AudioFeatures,
+  category = '',
 ): ScoreBreakdown {
   const resampled = resampleMono(samples, inputRate, 22_050);
   const audible = hasAudibleTake(resampled, 22_050);
@@ -198,5 +199,5 @@ export function scoreTake(
   // Keep the game path byte-for-byte aligned with the documented 22.05 kHz PCM16 capture target.
   const pcm = toPcm16(trimmed, 8, 22_050);
   const take = extractFeatures(pcm16ToFloat(pcm), 22_050);
-  return scoreFeatures(reference, take);
+  return scoreFeatures(reference, take, category);
 }

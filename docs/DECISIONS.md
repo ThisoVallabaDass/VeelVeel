@@ -57,3 +57,7 @@
 - **Make the venue a direct two-button choice.** Stage and Theatre should be visible and understandable without opening a hidden menu; the host's room choice is sent to all clients.
 - **Separate chat listening from speaking.** Muting incoming party chat should not silently disable the user's own mic. Voice chat still pauses during reference playback and recording.
 - **Make room play the only home-page entry.** The owner wants one clear party flow; Host Room is the primary action, while the older Local Mic Drop implementation stays in code for now without a player-facing entry.
+- **Make audience reactions follow each reveal score and seat the idle crowd.** Chairs remain visible below the ovation threshold; the audience rises and cheers for high scores, while low scores trigger booing and tomato gags.
+- **Collect anonymous sound category votes, not player audio or names.** Players can pick a common label or suggest a custom one during the reveal. The server keeps per-sound counts that can be exported for human review before pack metadata changes.
+- **Normalize cepstral contours before timbre comparison.** This reduces microphone/EQ differences and compares vowel/syllable movement so a phone's frequency response does not overwhelm the acoustic match.
+- **Keep show/anime dialogue out of the shipped sound bundle without explicit reuse rights.** Freesound and Wikimedia items carry individual licenses; each exact file must be checked and credited before import. Prefer CC0 or public-domain samples for bundled additions.

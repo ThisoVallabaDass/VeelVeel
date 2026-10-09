@@ -29,6 +29,10 @@ Updated 9 October 2026.
 
 ## Remaining boundaries
 
+- Round reveals now let players cast one anonymous category vote per sound, including a custom category. The room service aggregates votes at `/api/sound-labels` and exposes the JSON summary for curation. Configure `LABELS_FILE` to a persistent mounted path before relying on votes across Render restarts; the current free service filesystem is ephemeral. Votes guide a human-curated pack update and are not automatically used to train scoring.
+- The arena gives the audience chairs between reveals, raises them for strong scores and animates boo/tomato reactions for low scores. The lead singer moves toward the center microphone, mouths the take and raises a hand toward the mic while singing.
+- Timbre matching uses per-clip normalized MFCC contours and their changes, making it less sensitive to phone EQ and microphone gain.
+
 - Render free-tier cold starts and in-memory rooms remain availability limits. The live deployment uses one instance; restarts clear rooms.
 - Source provenance is retained, but YouTube redistribution rights are not verified. Use cleared media for permanent public release. Media is gitignored. Local builds can generate demos; production Docker builds now require a verified sound bundle URL and cannot silently fall back. The 590-clip bundle is published as GitHub release soundpack-v1; its URL and SHA-256 are configured in render.yaml. The code is pushed to ThisoVallabaDass/VeelVeel.
 - The requested “Azhuga onnum venam okay” short is included as a labelled opening excerpt. Exact phrase boundaries still need a Tamil speaker's audition; automatic captions did not provide a reliable alignment.

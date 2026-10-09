@@ -47,6 +47,9 @@ export default defineConfig({
   ],
   publicDir: path.resolve(root, '../../packs'),
   // basicSsl() injects its generated certificate into Vite's HTTPS options.
-  server: { host: true },
+  server: {
+    host: true,
+    proxy: { '/api': { target: 'https://localhost:8787', changeOrigin: true, secure: false } },
+  },
   build: { target: 'es2022', outDir: 'dist', emptyOutDir: true },
 });

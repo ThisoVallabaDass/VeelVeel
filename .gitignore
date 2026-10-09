@@ -11,6 +11,7 @@ coverage/
 packs/
 .env*
 .cache/
+.data/
 *.tsbuildinfo
 vite.config.js
 vite.config.js.map

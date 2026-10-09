@@ -311,7 +311,7 @@ export default function ArenaCanvas({
       group.add(badge);
       // Each stand belongs to its singer, so it follows their stage movement.
       const stand = new THREE.Group();
-      stand.position.set(0.72, 0, 0.42);
+      stand.position.set(0.12, 0, 0.42);
       group.add(stand);
       cylinder(0.3, 0.36, 0.08, '#161c2e', 0, 0.09, 0, stand);
       cylinder(0.055, 0.07, 1.65, '#a5b2c9', 0, 0.94, 0, stand);
@@ -364,7 +364,10 @@ export default function ArenaCanvas({
     scene.add(fans);
     const fanHeads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshStandardMaterial({ color: '#c2937e' }), fans.count);
     const fanArms = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.065, 0.065, 0.6, 6), new THREE.MeshStandardMaterial({ color: '#bd9cc5' }), fans.count * 2);
-    scene.add(fanHeads, fanArms);
+    const seats = new THREE.InstancedMesh(new THREE.BoxGeometry(0.74, 0.12, 0.68), new THREE.MeshStandardMaterial({ color: '#423457', roughness: 0.82 }), fans.count);
+    const chairBacks = new THREE.InstancedMesh(new THREE.BoxGeometry(0.74, 0.58, 0.12), new THREE.MeshStandardMaterial({ color: '#554268', roughness: 0.82 }), fans.count);
+    const chairLegs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.09, 0.35, 0.09), new THREE.MeshStandardMaterial({ color: '#b28c5a', roughness: 0.7 }), fans.count * 4);
+    scene.add(fanHeads, fanArms, seats, chairBacks, chairLegs);
     const tomatoes = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 7, 5), new THREE.MeshStandardMaterial({ color: '#ed343d', roughness: 0.7 }), 24);
     scene.add(tomatoes);
     const confetti = new THREE.InstancedMesh(
@@ -382,12 +385,23 @@ export default function ArenaCanvas({
     scene.add(confetti);
     for (let i = 0; i < fans.count; i++) {
       fans.getMatrixAt(i, dummy.matrix); dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+      const fanX = dummy.position.x;
+      const fanZ = dummy.position.z;
+      dummy.position.set(fanX, -0.12, fanZ); dummy.updateMatrix(); seats.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(fanX, 0.18, fanZ + 0.3); dummy.updateMatrix(); chairBacks.setMatrixAt(i, dummy.matrix);
+      for (let leg = 0; leg < 4; leg++) {
+        dummy.position.set(fanX + (leg % 2 ? 0.27 : -0.27), -0.28, fanZ + (leg > 1 ? 0.24 : -0.24));
+        dummy.updateMatrix(); chairLegs.setMatrixAt(i * 4 + leg, dummy.matrix);
+      }
       dummy.position.y += 0.35; dummy.updateMatrix(); fanHeads.setMatrixAt(i, dummy.matrix);
       dummy.position.y -= 0.3;
       for (let side = 0; side < 2; side++) {
         dummy.position.x += side ? 0.4 : -0.2; dummy.updateMatrix(); fanArms.setMatrixAt(i * 2 + side, dummy.matrix);
       }
     }
+    seats.instanceMatrix.needsUpdate = true;
+    chairBacks.instanceMatrix.needsUpdate = true;
+    chairLegs.instanceMatrix.needsUpdate = true;
     let frame = 0;
     let stopped = false;
     let lastFrameTime = 0;
@@ -424,6 +438,9 @@ export default function ArenaCanvas({
         lastStageScore = stageScore;
       }
       tomatoes.visible = stageScore < 40;
+      seats.visible = stageScore < 80;
+      chairBacks.visible = stageScore < 80;
+      chairLegs.visible = stageScore < 80;
       confetti.visible = stageScore >= 80;
       if (!staticFrame) {
         const t = now / 1000;
@@ -448,13 +465,14 @@ export default function ArenaCanvas({
           rig.leftLeg.rotation.x = stride * step;
           rig.rightLeg.rotation.x = -stride * step;
           rig.leftArm.rotation.x = -stride * (singing ? 0.54 : 0.23);
-          rig.rightArm.rotation.x = singing ? -1.1 + Math.sin(t * 12) * 0.18 : stride * 0.23;
+          rig.rightArm.rotation.x = singing ? -1.35 + Math.sin(t * 12) * 0.08 : stride * 0.23;
           rig.leftArm.rotation.z = dance ? -0.8 + Math.sin(t * 10) * 0.32 : 0.08;
-          rig.rightArm.rotation.z = dance ? 0.8 - Math.sin(t * 10) * 0.32 : -0.08;
+          rig.rightArm.rotation.z = singing ? -0.55 : dance ? 0.8 - Math.sin(t * 10) * 0.32 : -0.08;
           rig.mouth.scale.y = singing ? 0.15 + Math.min(1, stageLevel * 2.5) * 2.8 : 0.25;
           rig.browLeft.position.y = 2.42 + (singing ? Math.min(0.1, stageLevel * 0.3) : 0);
           rig.browRight.position.y = rig.browLeft.position.y;
           rig.head.rotation.z = flop && lead ? -0.23 : singing ? Math.sin(t * 4) * 0.065 : 0;
+          rig.head.rotation.x = singing ? -0.1 : 0;
           const centerX = lead && stageActive && leadSinger >= 0 ? 0 : rig.homeX;
           const centerZ = lead && stageActive && leadSinger >= 0 ? -0.8 : rig.homeZ;
           performer.position.x += (centerX - performer.position.x) * 0.08;
@@ -480,7 +498,7 @@ export default function ArenaCanvas({
             const column = index % 20;
             const row = Math.floor(index / 20);
             dummy.position.set((column - 9.5) * 0.97,
-              (stageScore >= 80 ? 1.12 : 0.48) + (index % 5) * 0.09 + (staticFrame ? 0 : Math.max(0, Math.sin(t * (3 + energy * 5) + index * 1.73))) * 0.24 * energy,
+              (stageScore >= 80 ? 1.12 : stageScore < 40 ? 0.40 : 0.48) + (index % 5) * 0.09 + (staticFrame ? 0 : Math.max(0, Math.sin(t * (3 + energy * 5) + index * 1.73))) * 0.24 * energy,
               3.4 + row * 1.1);
             dummy.scale.setScalar(0.75 + (index % 4) * 0.12);
             dummy.updateMatrix();
@@ -492,7 +510,7 @@ export default function ArenaCanvas({
             for (let side = 0; side < 2; side++) {
               dummy.position.x = fanX + (side ? 0.34 : -0.34);
               dummy.position.y = fanY + (stageScore >= 80 ? 0.72 : 0.08);
-              dummy.rotation.z = (side ? 1 : -1) * (stageScore >= 80 ? 0.65 + (staticFrame ? 0 : Math.sin(t * 9 + index)) * 0.3 : 0.22);
+              dummy.rotation.z = (side ? 1 : -1) * (stageScore >= 80 ? 0.65 + (staticFrame ? 0 : Math.sin(t * 9 + index)) * 0.3 : stageScore < 40 ? 0.8 : 0.22);
               dummy.updateMatrix(); fanArms.setMatrixAt(index * 2 + side, dummy.matrix);
             }
             dummy.rotation.set(0, 0, 0);

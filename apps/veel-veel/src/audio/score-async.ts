@@ -4,6 +4,7 @@ export function scoreTakeAsync(
   samples: Float32Array,
   sampleRate: number,
   reference: AudioFeatures,
+  category = '',
 ): Promise<ScoreBreakdown> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./score-worker.ts', import.meta.url), { type: 'module' });
@@ -24,6 +25,6 @@ export function scoreTakeAsync(
       finish();
       reject(new Error('Scoring worker failed'));
     };
-    worker.postMessage({ samples, sampleRate, reference });
+    worker.postMessage({ samples, sampleRate, reference, category });
   });
 }

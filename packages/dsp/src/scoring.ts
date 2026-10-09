@@ -59,6 +59,22 @@ const vectorDistance = (x: number[], y: number[]) =>
     x.reduce((sum, value, i) => sum + (value - (y[i] ?? 0)) ** 2, 0) / Math.max(1, x.length),
   );
 
+/** Normalize each cepstral band inside its own clip so phone EQ and mic gain
+ * do not dominate the timbre comparison. Keep both the contour and its motion:
+ * the first distinguishes bright/dark vowels, the second catches syllable shape. */
+function normalizedCepstra(frames: FeatureFrame[]) {
+  const bands = Array.from({ length: 7 }, (_, band) => frames.map((frame) => frame.mfcc[band + 1] ?? 0));
+  const center = bands.map((values) => median(values));
+  const spread = bands.map((values, band) => {
+    const deviations = values.map((value) => Math.abs(value - center[band]!));
+    return Math.max(0.01, median(deviations) * 1.4826);
+  });
+  const contours = frames.map((_, index) => bands.map((values, band) =>
+    clamp((values[index]! - center[band]!) / (spread[band]! * 2), -3, 3)));
+  return contours.map((row, index) => row.map((value, band) =>
+    index === 0 ? value : value * 0.65 + (value - contours[index - 1]![band]!) * 0.35));
+}
+
 /** Pick the best circular phase when a continuous input device starts mid-reference cycle. */
 function bestCircularOffset(reference: FeatureFrame[], take: FeatureFrame[]) {
   const length = Math.min(reference.length, take.length);
@@ -87,7 +103,7 @@ function bestCircularOffset(reference: FeatureFrame[], take: FeatureFrame[]) {
 }
 
 /** Forgiving, relative performance score. This compares features only; no speech recognition. */
-export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): ScoreBreakdown {
+export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures, category = ''): ScoreBreakdown {
   const got = take.frames;
   const offset = bestCircularOffset(reference.frames, got);
   const frameOffset = Math.round((offset * reference.frames.length) / Math.max(1, got.length));
@@ -156,8 +172,8 @@ export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): Sc
     melody = clamp(100 * Math.exp(-1.8 * pitchCost));
   }
   const energySimilarity = clamp(100 * Math.exp(-2.3 * energyDtw.cost));
-  const refMfcc = ref.map((frame) => frame.mfcc.slice(1, 8));
-  const takeMfcc = got.map((frame) => frame.mfcc.slice(1, 8));
+  const refMfcc = normalizedCepstra(ref);
+  const takeMfcc = normalizedCepstra(got);
   const vibeCost = dtw(refMfcc, takeMfcc, vectorDistance).cost;
   const vibe = clamp(100 * Math.exp(-vibeCost * 0.12));
   // When one device cannot track the source pitch, corroborating timbre and
@@ -180,14 +196,26 @@ export function scoreFeatures(reference: AudioFeatures, take: AudioFeatures): Sc
     ) * 0.45,
   );
   const commitment = clamp(coverage * durationFit);
+  const kind = category.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const weights = kind.includes('sing') || kind.includes('song')
+    ? { rhythm: 0.30, melody: 0.35, energy: 0.15, vibe: 0.20 }
+    : kind.includes('dialogue') || kind.includes('speech') || kind.includes('catchphrase')
+      ? { rhythm: 0.42, melody: 0.05, energy: 0.23, vibe: 0.30 }
+      : kind.includes('effect') || kind.includes('gasp')
+        ? { rhythm: 0.33, melody: 0.05, energy: 0.17, vibe: 0.45 }
+        : kind.includes('crowd')
+          ? { rhythm: 0.40, melody: 0.00, energy: 0.27, vibe: 0.33 }
+          : kind.includes('laugh') || kind.includes('animal')
+            ? { rhythm: 0.38, melody: 0.15, energy: 0.22, vibe: 0.25 }
+            : SCORING_CONFIG.weights;
   const pitchReliability = Math.min(1, refPitches.length / Math.max(1, ref.length * 0.35));
-  const melodyWeight = SCORING_CONFIG.weights.melody * pitchReliability;
-  const extraShapeWeight = (SCORING_CONFIG.weights.melody - melodyWeight) / 2;
+  const melodyWeight = weights.melody * pitchReliability;
+  const extraShapeWeight = (weights.melody - melodyWeight) / 2;
   const weighted = clamp(
-    rhythm * (SCORING_CONFIG.weights.rhythm + extraShapeWeight) +
+    rhythm * (weights.rhythm + extraShapeWeight) +
       melody * melodyWeight +
-      energySimilarity * (SCORING_CONFIG.weights.energy + extraShapeWeight) +
-      vibe * SCORING_CONFIG.weights.vibe,
+      energySimilarity * (weights.energy + extraShapeWeight) +
+      vibe * weights.vibe,
   );
   const partyLift = 100 * Math.pow(weighted / 100, SCORING_CONFIG.partyCurveExponent);
   // A single held note can match the rhythm and timbre of a changing melody.

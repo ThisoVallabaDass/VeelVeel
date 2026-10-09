@@ -18,6 +18,7 @@ type CatalogClip = {
   end_s?: number;
   flags?: string[];
   language?: 'ta' | 'en';
+  category?: string;
 };
 const root = process.cwd();
 const args = process.argv.slice(2);
@@ -155,6 +156,7 @@ for (let index = 0; index < manifest.length; index += 1) {
       features: `features/${item.clip_id}.json`,
       title: item.title ?? '',
       label: item.title ?? '',
+      category: item.category,
       rights: item.rights ?? 'unverified-source',
       language: item.language ?? 'ta',
       source: item.source_url ?? '',
