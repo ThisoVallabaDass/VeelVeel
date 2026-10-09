@@ -376,15 +376,6 @@ export default function App() {
     }
   }
 
-  async function beginSetup() {
-    if (!pack?.clips.length) {
-      setToast(packError || 'Sound pack is loading.');
-      return;
-    }
-    setScreen('setup');
-    if (!mic) await openMic();
-  }
-
   function enterLobby() {
     if (!mic || !calibrated || !testSaid) {
       void openMic();
@@ -635,12 +626,6 @@ export default function App() {
           <section className="home-actions">
             <button
               className="mode-link"
-              onClick={() => { window.location.href = '/host'; }}
-            >
-              ▣ &nbsp; HOST ROOM <small>2–5 PLAYERS</small>
-            </button>
-            <button
-              className="mode-link"
               onClick={() => { window.location.href = '/join'; }}
             >
               ⌕ &nbsp; JOIN ROOM <small>USE A CODE</small>
@@ -670,12 +655,12 @@ export default function App() {
                 <br />
                 Get judged lovingly.
               </p>
-              <button className="btn btn-primary btn-xl" onClick={() => void beginSetup()}>
-                {en.playLocal}
+              <button className="btn btn-primary btn-xl" onClick={() => { window.location.href = '/host'; }}>
+                HOST ROOM
                 <span>↗</span>
               </button>
               <p className="privacy-note">
-                <span>◉</span> LOCAL MODE: MIC STAYS ON THIS DEVICE
+                <span>◉</span> INVITE 2–5 SINGERS · AUDIENCE WELCOME
               </p>
               {packError && <p className="error-note">{packError}</p>}
             </div>

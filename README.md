@@ -7,14 +7,14 @@
 Uses the checked-in Docker/Render configuration. The sound-bundle URL and checksum are already configured. Sign into Render, review the free service, and deploy.
 
 
-Veel Veel is a browser voice-mimic party game with a procedural festival/theatre arena, local Mic Drop, and room Mic Drop for up to five singers on a reachable network. The host can sing from the host screen or run the room for phone singers. Room hosts can choose simultaneous singing or turns; each singer sees rhythm, melody, energy and vibe scores.
+Veel Veel is a browser voice-mimic party game with a procedural festival/theatre arena and room Mic Drop for up to five singers. The host joins the lineup by default, or can run the room as an audience member. Guests can sing or watch from their phones. Each singer sees rhythm, melody, energy and vibe scores.
 
 ```powershell
 pnpm install
 pnpm dev
 ```
 
-`pnpm dev` indexes clips into the ignored `packs/` folder, then starts the HTTPS game on port 5173 and a secure room relay on port 8787. Open the local address for **Play Local**, **Host Room**, or **Join Room**. The current workspace pack contains 590 Tamil/English meme clips, including 56 labelled vocal additions; a fresh checkout without local source media creates twelve synthesized demo clips. See [local setup](docs/LOCAL_DEV.md), [sound additions](docs/CLIPS.md), [room protocol](docs/PROTOCOL.md), [hosting](docs/DEPLOY.md), and [current status](docs/STATUS.md).
+`pnpm dev` indexes clips into the ignored `packs/` folder, then starts the HTTPS game on port 5173 and a secure room relay on port 8787. Open the local address for **Host Room** or **Join Room**. The current workspace pack contains 590 Tamil/English meme clips, including 56 labelled vocal additions; a fresh checkout without local source media creates twelve synthesized demo clips. See [local setup](docs/LOCAL_DEV.md), [sound additions](docs/CLIPS.md), [room protocol](docs/PROTOCOL.md), [hosting](docs/DEPLOY.md), and [current status](docs/STATUS.md).
 
 Game checks: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`.
 

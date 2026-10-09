@@ -2042,3 +2042,10 @@ select:focus-visible {
 .home-actions .mode-link:first-child { background:#ff5395; color:#141126; }
 .home-actions .mode-link:nth-child(2) { border:2px solid #56e2d2; }
 .arena-canvas{position:relative}.arena-reaction{position:absolute;z-index:2;top:18px;left:50%;transform:translateX(-50%);max-width:90%;padding:12px 24px;border-radius:14px;font:800 clamp(14px,2vw,24px) 'DM Sans',sans-serif;text-align:center;box-shadow:0 12px 30px #0005;white-space:nowrap}.arena-reaction small{display:block;font-size:12px;font-weight:500;margin-top:4px}.arena-reaction.ovation{background:#ffda72;color:#282039}.arena-reaction.tomato{background:#ff6581;color:#22132c}.home-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;border:0;padding:18px 0}.home-actions .mode-link{border:1px solid #ffffff25;border-radius:16px;min-height:88px!important;padding:20px;font:700 20px 'DM Sans',sans-serif;letter-spacing:.02em;text-align:left;background:#ffffff05}.home-actions .mode-link small{letter-spacing:.12em;margin-top:10px}.home-actions .mode-link:hover{box-shadow:0 0 0 2px #56e2d2;transform:translateY(-2px)}.home-actions .mode-link:focus-visible{outline:3px solid #ffcd57;outline-offset:4px}.round-intermission{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:22px;background:#142b35;border:1px solid #56e2d2;border-radius:16px}.round-intermission strong{color:#56e2d2;font-size:24px}.round-intermission span{color:#c6d3da}.round-intermission button{margin-left:auto;background:#56e2d2;border:0;border-radius:10px;color:#11252f;min-height:48px;padding:12px 22px;font-weight:700}@media(max-width:620px){.home-actions{grid-template-columns:1fr 1fr}.home-actions .theme-trigger{grid-column:1/-1}.arena-reaction{top:10px;padding:8px 14px}.arena-reaction small{font-size:10px}.round-intermission button{margin-left:0}}
+
+.home-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.home-actions .mode-link:first-child { background: #ffffff05; color: #f4efff; border: 2px solid #56e2d2; }
+@media (max-width: 620px) {
+  .home-actions { grid-template-columns: 1fr; }
+  .home-actions .mode-link { width: 100%; }
+}

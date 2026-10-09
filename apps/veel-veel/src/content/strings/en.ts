@@ -1,6 +1,5 @@
 export const en = {
   appName: 'Veel Veel',
-  playLocal: 'PLAY LOCAL',
   hostRoom: 'HOST ROOM',
   joinRoom: 'JOIN ROOM',
   dailyStage: 'DAILY STAGE',

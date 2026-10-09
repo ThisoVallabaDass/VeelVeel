@@ -24,4 +24,4 @@
 
 ## Current milestone boundary
 
-Local and room Mic Drop are playable. Other modes and public deployment remain open work; do not present them as finished. See `docs/STATUS.md`.
+Room Mic Drop is the player-facing mode and is deployed publicly. The older standalone Local Mic Drop implementation remains in code without a home-page entry. Other modes remain open work; do not present them as finished. See `docs/STATUS.md`.

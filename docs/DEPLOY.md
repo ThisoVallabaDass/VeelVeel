@@ -40,4 +40,4 @@ Production start: `NODE_ENV=production PORT=8787 node apps/server/dist/index.js`
 
 ## Verification
 
-`pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`. To test a deployed endpoint, set `VEEL_E2E_BASE_URL` to its HTTPS URL before running Playwright. Tests cover local play, automatic two-player rounds, five-player rooms, sixth-player rejection, host participation, chat muting, and reconnect identity. Relay tests additionally verify score masking and playback-before-score ordering.
+`pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm e2e`. To test a deployed endpoint, set `VEEL_E2E_BASE_URL` to its HTTPS URL before running Playwright. Tests cover room-first home navigation, automatic two-player rounds, five-player rooms, sixth-player rejection, host participation, chat muting, and reconnect identity. Relay tests additionally verify score masking and playback-before-score ordering.

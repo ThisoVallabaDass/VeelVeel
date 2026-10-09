@@ -56,3 +56,4 @@
 - **Keep audience separate from singer seats and scores.** Viewers can join at any point and reconnect, while ready, recording and scoring remain singer-only. Limit active audience identities to 20 to bound relay memory and bandwidth.
 - **Make the venue a direct two-button choice.** Stage and Theatre should be visible and understandable without opening a hidden menu; the host's room choice is sent to all clients.
 - **Separate chat listening from speaking.** Muting incoming party chat should not silently disable the user's own mic. Voice chat still pauses during reference playback and recording.
+- **Make room play the only home-page entry.** The owner wants one clear party flow; Host Room is the primary action, while the older Local Mic Drop implementation stays in code for now without a player-facing entry.

@@ -1,6 +1,5 @@
 export const ta = {
   appName: 'வீல் வீல்',
-  playLocal: 'உள்ளூரில் விளையாடு',
   hostRoom: 'அறையைத் தொடங்கு',
   joinRoom: 'அறையில் சேர்',
   sayTest: '“வீல் வீல்” என்று சொல்லுங்கள்',

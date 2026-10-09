@@ -4,7 +4,7 @@ Updated 9 October 2026.
 
 ## Playable now
 
-- Local Mic Drop with one human and four bots, 5/7/10/15 rounds, microphone setup, DSP scoring, Golden Buzzer, starter Chaos Cards, roast playback and podium.
+- Room play is the home-page entry. The earlier standalone Local Mic Drop implementation remains in code but is no longer offered as a player action.
 - Online room Mic Drop for 2–5 ready singers. The host joins as a singer by default, with an audience-only hosting option. Up to 20 audience members can watch and listen without taking singer seats or microphone permission. Audience members can join after a set starts and reconnect with their room token. Share the room URL or QR code.
 - Automatic reference loading, shared listening, three-second preparation, and simultaneous microphone recording. Each take is played to every room member in sequence; the score follows that take. A shared 6.5-second intermission automatically starts the next round and opens the final podium after the chosen 5, 7, 10 or 15 rounds. The host can skip the intermission. Missing submissions have a bounded timeout.
 - Opt-in voice chat with Always on and Push to talk for hosts, singers and audience. Incoming chat can be muted separately from outgoing voice. Listening/recording pauses voice chat at both client and server; it returns for take playback. Keyboard, pointer, focus and page-visibility release are handled.
@@ -23,7 +23,7 @@ Updated 9 October 2026.
 
 - Twenty-six Vitest checks pass, including real-pack DSP, silence/hiss/DC/click rejection, calibrated hum rejection, and relay tests for minimum players, voice gating, score masking, and replay-before-score ordering.
 - TypeScript and ESLint pass. The production build passes. Arena code remains lazy-loaded (about 134 kB gzip); the main bootstrap is about 130 kB gzip.
-- Two-player and five-player Chromium room tests passed through the public HTTPS endpoint, including automatic singing, host participation, full-room rejection, revealed judge scores and reconnect identity. All four browser tests passed through the public endpoint, including a complete five-round local game.
+- Two-player and five-player Chromium room tests passed through the public HTTPS endpoint, including automatic singing, host participation, full-room rejection, revealed judge scores and reconnect identity. Home navigation now checks the room-first actions and Stage/Theatre choice at desktop and phone widths.
 - The October 5 studio update passed the full local-game browser test and all four room tests against a local production build. The added test feeds background hum through real browser microphone capture and verifies zero points for both singers. Mobile recording screenshots use a 390-pixel viewport; physical-phone testing is still manual.
 - A real Three.js page was rendered and captured at `docs/screens/15-public-home-3d.png` without page errors. This headless software-rendering run measured about 15 FPS; it is not an integrated-GPU or mobile performance result. Hardware FPS/draw-call targets remain unverified.
 
