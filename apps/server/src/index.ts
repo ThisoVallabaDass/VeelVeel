@@ -24,14 +24,20 @@ async function loadLabelVotes(): Promise<LabelVotes> {
   return labelVotesCache;
 }
 async function addSoundLabel(clipId: string, category: string) {
+  let accepted = true;
   labelWriteQueue = labelWriteQueue.catch(() => undefined).then(async () => {
     const votes = await loadLabelVotes();
     const categories = votes[clipId] ?? (votes[clipId] = {});
+    if (!Object.hasOwn(categories, category) && Object.keys(categories).length >= 24) {
+      accepted = false;
+      return;
+    }
     categories[category] = (categories[category] ?? 0) + 1;
     await mkdir(dirname(labelFile), { recursive: true });
     await writeFile(labelFile, JSON.stringify(votes, null, 2), 'utf8');
   });
   await labelWriteQueue;
+  if (!accepted) return null;
   return (await loadLabelVotes())[clipId];
 }
 
@@ -408,7 +414,7 @@ async function serve(request: IncomingMessage, response: ServerResponse) {
     if (now - rate.since > 10 * 60_000) { rate.since = now; rate.count = 0; }
     rate.count += 1;
     labelRateLimits.set(address, rate);
-    if (rate.count > 30) { response.writeHead(429).end('Too many labels. Try again later.'); return; }
+    if (rate.count > 500) { response.writeHead(429).end('Too many labels. Try again later.'); return; }
     const parts: Buffer[] = [];
     let size = 0;
     for await (const chunk of request) {
@@ -427,6 +433,7 @@ async function serve(request: IncomingMessage, response: ServerResponse) {
     }
     try {
       const votes = await addSoundLabel(data.clipId, data.category.trim().replace(/\s+/g, ' '));
+      if (!votes) { response.writeHead(409).end('This sound already has the maximum of 24 categories.'); return; }
       response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
       response.end(JSON.stringify({ clipId: data.clipId, votes }));
     } catch {
