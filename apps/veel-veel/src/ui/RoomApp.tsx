@@ -415,13 +415,20 @@ export default function RoomApp() {
       micRef.current = capture;
       setMic(capture);
       setError('');
-    } catch (reason) { capture.close(); setError(`Mic unavailable: ${String(reason)}`); }
+    } catch (reason) {
+      capture.close();
+      const failure = reason instanceof DOMException ? reason.name : '';
+      if (!window.isSecureContext) setError('Microphone needs a secure connection. Open the invite link at https://veel-veel.onrender.com in your phone browser.');
+      else if (failure === 'NotAllowedError' || failure === 'PermissionDeniedError' || String(reason).toLowerCase().includes('not allowed'))
+        setError('Microphone access is blocked. Open this link in Safari or Chrome, tap the site icon beside the address, allow Microphone, then reload and tap CONNECT MICROPHONE. If it is still blocked, enable microphone access for your browser in your phone settings.');
+      else if (failure === 'NotFoundError' || failure === 'DevicesNotFoundError') setError('No microphone was found on this device. Check that one is connected, then try again.');
+      else setError(`Mic unavailable: ${String(reason)}`);
+    }
     finally { openingMic.current = false; setCalibrating(false); }
   }
   function changeVoiceMode(next: 'off' | 'always' | 'push') {
     setVoiceMode(next);
     setPushing(false);
-    if (next !== 'off') void openMic();
   }
   async function beginRound() {
     if (beginBusy.current) return;
