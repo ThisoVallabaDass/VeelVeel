@@ -24,14 +24,17 @@ type Player = {
   scoredRound: number | null;
   lastLevelAt: number;
 };
+type Audience = { id: string; name: string; token: string; socket: WebSocket | null };
 type Room = {
   code: string;
   hostToken: string;
   host: WebSocket | null;
   players: Player[];
+  audience: Audience[];
   round: number | null;
   rounds: 5 | 7 | 10 | 15;
   mode: 'together' | 'turns';
+  theme: 'festival' | 'theatre';
   activePlayerId: string | null;
   clip: Extract<ClientRoomMessage, { type: 'round:begin' }>['clip'] | null;
   phase: 'lobby' | 'listen' | 'perform' | 'reveal' | 'results';
@@ -44,7 +47,7 @@ type Room = {
   started: boolean;
   timers: ReturnType<typeof setTimeout>[];
 };
-type Connection = { room: Room; player?: Player; host: boolean };
+type Connection = { room: Room; player: Player | undefined; audience: Audience | undefined; host: boolean };
 const rooms = new Map<string, Room>();
 const connections = new WeakMap<WebSocket, Connection>();
 const roomAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -71,12 +74,13 @@ function send(socket: WebSocket | null, message: ServerRoomMessage) {
 function broadcast(room: Room, message: ServerRoomMessage) {
   send(room.host, message);
   for (const player of room.players) if (player.socket !== room.host) send(player.socket, message);
+  for (const viewer of room.audience) send(viewer.socket, message);
 }
 function snapshot(room: Room) {
   broadcast(room, {
     type: 'room:snapshot', version: ROOM_VERSION, code: room.code,
     hostConnected: room.host !== null, round: room.round, rounds: room.rounds,
-    nextRoundAt: room.nextRoundAt, mode: room.mode, activePlayerId: room.activePlayerId, clip: room.clip, phase: room.phase,
+    nextRoundAt: room.nextRoundAt, mode: room.mode, theme: room.theme, activePlayerId: room.activePlayerId, clip: room.clip, phase: room.phase,
     players: room.players.map((player, index) => ({
       id: player.id, name: player.name, colorToken: index, ready: player.ready,
       connected: player.socket !== null, score: player.score - (room.revealed.has(player.id) ? 0 : (player.roundScore ?? 0)),
@@ -84,6 +88,7 @@ function snapshot(room: Room) {
       roundScore: room.revealed.has(player.id) ? player.roundScore : null,
       judges: room.revealed.has(player.id) ? player.judges : null,
     })),
+    audience: room.audience.map((viewer) => ({ id: viewer.id, name: viewer.name, connected: viewer.socket !== null })),
   });
 }
 function fail(socket: WebSocket, message: string) {
@@ -95,18 +100,20 @@ function closeRoom(room: Room) {
   rooms.delete(room.code);
   room.host?.close(1000, 'Room closed');
   for (const player of room.players) if (player.socket !== room.host) player.socket?.close(1000, 'Room closed');
+  for (const viewer of room.audience) viewer.socket?.close(1000, 'Room closed');
 }
 function detach(socket: WebSocket) {
   const connection = connections.get(socket);
   if (!connection) return;
   connections.delete(socket);
-  const { room, player, host } = connection;
+  const { room, player, audience, host } = connection;
   if (host && room.host === socket) room.host = null;
   if (player && player.socket === socket) {
     player.socket = null;
     if (room.phase === 'lobby') player.ready = false;
     if (room.activePlayerId === player.id) advanceTurn(room);
   }
+  if (audience && audience.socket === socket) audience.socket = null;
   room.touchedAt = Date.now();
   snapshot(room);
 }
@@ -115,7 +122,7 @@ function advanceTurn(room: Room) {
     ? room.players.find((item) => item.ready && item.socket && item.roundScore === null)?.id ?? null
     : null;
 }
-function attach(socket: WebSocket, room: Room, host: boolean, player?: Player) {
+function attach(socket: WebSocket, room: Room, host: boolean, player?: Player, audience?: Audience) {
   if (host) {
     if (room.host && room.host !== socket) room.host.close(4000, 'Rejoined elsewhere');
     room.host = socket;
@@ -123,8 +130,11 @@ function attach(socket: WebSocket, room: Room, host: boolean, player?: Player) {
   } else if (player) {
     if (player.socket && player.socket !== socket) player.socket.close(4000, 'Rejoined elsewhere');
     player.socket = socket;
+  } else if (audience) {
+    if (audience.socket && audience.socket !== socket) audience.socket.close(4000, 'Rejoined elsewhere');
+    audience.socket = socket;
   }
-  connections.set(socket, player ? { room, host, player } : { room, host });
+  connections.set(socket, { room, host, player, audience });
   room.touchedAt = Date.now();
 }
 function replayRound(room: Room) {
@@ -156,11 +166,17 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     if (connection) return fail(socket, 'Already in a room.');
     if (rooms.size >= 100) return fail(socket, 'Room server is full. Try later.');
     const room: Room = {
-      code: roomCode(), hostToken: token(), host: null, players: [], round: null, rounds: 5, clip: null, nextRoundAt: null,
-      mode: 'together', activePlayerId: null, phase: 'lobby', touchedAt: Date.now(), loaded: new Set(), takes: new Map(), revealed: new Set(), replaying: false, started: false, timers: [],
+      code: roomCode(), hostToken: token(), host: null, players: [], audience: [], round: null, rounds: 5, clip: null, nextRoundAt: null,
+      mode: 'together', theme: message.theme ?? 'festival', activePlayerId: null, phase: 'lobby', touchedAt: Date.now(), loaded: new Set(), takes: new Map(), revealed: new Set(), replaying: false, started: false, timers: [],
     };
     rooms.set(room.code, room);
-    attach(socket, room, true);
+    let hostSinger: Player | undefined;
+    if (!message.hostAsAudience) {
+      hostSinger = { id: randomUUID(), name: message.name?.trim() || 'Host', token: token(), hostPlayer: true, socket: null,
+        ready: false, score: 0, roundScore: null, judges: null, submittedRound: null, scoredRound: null, lastLevelAt: 0 };
+      room.players.push(hostSinger);
+    }
+    attach(socket, room, true, hostSinger);
     send(socket, { type: 'room:created', version: ROOM_VERSION, code: room.code, token: room.hostToken });
     snapshot(room);
     return;
@@ -169,15 +185,25 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     if (connection) return fail(socket, 'Already in a room.');
     const room = rooms.get(message.code);
     if (!room) return fail(socket, 'Room code not found.');
-    if (room.players.length >= 5) return fail(socket, 'This room has five singers already.');
-    if (room.phase !== 'lobby') return fail(socket, 'The show has started. Join the next room.');
+    if (message.role === 'audience') {
+      if (room.audience.length >= 20) room.audience = room.audience.filter((item) => item.socket !== null);
+      if (room.audience.length >= 20) return fail(socket, 'This room has twenty audience members already.');
+      const viewer: Audience = { id: randomUUID(), name: message.name.trim(), token: token(), socket: null };
+      room.audience.push(viewer);
+      attach(socket, room, false, undefined, viewer);
+      send(socket, { type: 'room:joined', version: ROOM_VERSION, code: room.code, token: viewer.token, role: 'audience', playerId: null });
+      snapshot(room);
+      return;
+    }
+    if (room.players.length >= 5) return fail(socket, 'This room has five singers already. Choose Audience to watch.');
+    if (room.phase !== 'lobby') return fail(socket, 'The show has started. Join as Audience to watch.');
     const player: Player = {
       id: randomUUID(), name: message.name.trim(), token: token(), hostPlayer: false, socket: null,
       ready: false, score: 0, roundScore: null, judges: null, submittedRound: null, scoredRound: null, lastLevelAt: 0,
     };
     room.players.push(player);
     attach(socket, room, false, player);
-    send(socket, { type: 'room:joined', version: ROOM_VERSION, code: room.code, token: player.token, playerId: player.id });
+    send(socket, { type: 'room:joined', version: ROOM_VERSION, code: room.code, token: player.token, role: 'singer', playerId: player.id });
     snapshot(room);
     return;
   }
@@ -190,15 +216,16 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
       send(socket, { type: 'room:created', version: ROOM_VERSION, code: room.code, token: room.hostToken });
     } else {
       const player = room.players.find((item) => item.token === message.token);
-      if (!player) return fail(socket, 'Rejoin token is invalid.');
-      attach(socket, room, false, player);
-      send(socket, { type: 'room:joined', version: ROOM_VERSION, code: room.code, token: player.token, playerId: player.id });
+      const audience = room.audience.find((item) => item.token === message.token);
+      if (!player && !audience) return fail(socket, 'Rejoin token is invalid.');
+      attach(socket, room, false, player, audience);
+      send(socket, { type: 'room:joined', version: ROOM_VERSION, code: room.code, token: message.token, role: player ? 'singer' : 'audience', playerId: player?.id ?? null });
     }
     snapshot(room);
     return;
   }
   if (!connection) return fail(socket, 'Create or join a room first.');
-  const { room, player, host } = connection;
+  const { room, player, audience, host } = connection;
   room.touchedAt = Date.now();
   if (message.type === 'room:host-player') {
     if (!host || player) return fail(socket, 'Only a screen-only host can join as a singer.');
@@ -222,12 +249,23 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
       socket.close(1000, 'Left room');
       if (room.activePlayerId === player.id) advanceTurn(room);
       snapshot(room);
+    } else if (audience) {
+      room.audience = room.audience.filter((item) => item !== audience);
+      connections.delete(socket);
+      socket.close(1000, 'Left room');
+      snapshot(room);
     }
     return;
   }
   if (message.type === 'room:ready') {
     if (!player || room.phase !== 'lobby') return fail(socket, 'Ready is available in the lobby.');
     player.ready = message.ready;
+    snapshot(room);
+    return;
+  }
+  if (message.type === 'room:theme') {
+    if (!host) return fail(socket, 'Only the host can change the venue.');
+    room.theme = message.theme;
     snapshot(room);
     return;
   }
@@ -262,9 +300,10 @@ function handle(socket: WebSocket, message: ClientRoomMessage) {
     if (room.phase === 'perform' && !room.replaying) return;
     if (!/^[A-Za-z0-9+/]*={0,2}$/.test(message.pcm16)) return;
     if (Buffer.from(message.pcm16, 'base64').length % 2) return;
-    const audio = { ...message, playerId: player?.id ?? 'host' };
+    const audio = { ...message, playerId: player?.id ?? audience?.id ?? 'host' };
     if (socket !== room.host) send(room.host, audio);
     for (const member of room.players) if (member.socket !== socket && member.socket !== room.host) send(member.socket, audio);
+    for (const viewer of room.audience) if (viewer.socket !== socket) send(viewer.socket, audio);
     return;
   }
   if (message.type === 'round:loaded') {

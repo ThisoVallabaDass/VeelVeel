@@ -40,6 +40,7 @@ test('background hum without singing receives zero in an actual room round', asy
 }) => {
   const host = await browser.newPage();
   await host.goto('/host?e2e=1');
+  await host.getByLabel('Host as audience only').check();
   await host.getByRole('button', { name: /CREATE ROOM/ }).click();
   const code = (await host.locator('.room-code-bar strong').textContent())!.trim();
   const guests = [];
@@ -47,7 +48,7 @@ test('background hum without singing receives zero in an actual room round', asy
     const guest = await browser.newPage({ permissions: ['microphone'] });
     await guest.goto(`/j/${code}?e2e=1`);
     await guest.getByPlaceholder('Your name').fill(name);
-    await guest.getByRole('button', { name: /JOIN ROOM/ }).click();
+    await guest.getByRole('button', { name: /JOIN AS SINGER/ }).click();
     await guest.getByRole('button', { name: /CONNECT MICROPHONE/ }).click();
     await expect(guest.getByRole('button', { name: /MIC CONNECTED/ })).toBeVisible();
     await guest.getByRole('button', { name: /I AM READY/ }).click();

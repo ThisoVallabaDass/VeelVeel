@@ -166,7 +166,14 @@ export default function App() {
   const [takeLevels, setTakeLevels] = useState<number[]>([]);
   const [toast, setToast] = useState('');
   const [goldenBuzzer, setGoldenBuzzer] = useState(false);
-  const [themeMenu, setThemeMenu] = useState(false);
+  useEffect(() => {
+    const saved = localStorage.getItem('veel-stage-theme');
+    if (saved === 'festival' || saved === 'theatre') setTheme(saved);
+  }, [setTheme]);
+  const chooseTheme = (id: string) => {
+    setTheme(id);
+    localStorage.setItem('veel-stage-theme', id);
+  };
   const [arenaDemoScore, setArenaDemoScore] = useState(76);
   const [arenaDemoReaction, setArenaDemoReaction] = useState('NOD · RHYTHM LOCKED');
   const [arenaDemoActive, setArenaDemoActive] = useState(false);
@@ -532,7 +539,7 @@ export default function App() {
                 <button
                   key={stage.id}
                   className={stage.id === theme ? 'selected' : ''}
-                  onClick={() => setTheme(stage.id)}
+                  onClick={() => chooseTheme(stage.id)}
                 >
                   {stage.id === 'festival' ? '🎊' : '🎬'} {stage.name}
                 </button>
@@ -638,9 +645,13 @@ export default function App() {
             >
               ⌕ &nbsp; JOIN ROOM <small>USE A CODE</small>
             </button>
-            <button className="mode-link theme-trigger" onClick={() => setThemeMenu(!themeMenu)}>
-              ◈ &nbsp; STAGE <small>{gameTheme.name.toUpperCase()}</small>
-            </button>
+            <div className="stage-choice" role="group" aria-label="Choose stage theme">
+              <span>◈ &nbsp; VENUE</span>
+              <div>
+                <button type="button" aria-pressed={theme === 'festival'} onClick={() => chooseTheme('festival')}>🎊 Stage</button>
+                <button type="button" aria-pressed={theme === 'theatre'} onClick={() => chooseTheme('theatre')}>🎬 Theatre</button>
+              </div>
+            </div>
           </section>
           <section className="home-hero">
             <div className="home-copy">
@@ -691,23 +702,6 @@ export default function App() {
             </div>
           </section>
 
-          {themeMenu && (
-            <div className="theme-popover">
-              {Object.values(themes).map((stage) => (
-                <button
-                  key={stage.id}
-                  className={stage.id === theme ? 'selected' : ''}
-                  onClick={() => {
-                    setTheme(stage.id);
-                    setThemeMenu(false);
-                  }}
-                >
-                  {stage.id === 'festival' ? '🎊' : '🎬'} {stage.name}
-                  <small>{stage.banner}</small>
-                </button>
-              ))}
-            </div>
-          )}
           <section className="promise-row">
             <span>
               01 <b>HEAR THE CLIP</b>

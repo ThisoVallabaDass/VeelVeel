@@ -31,7 +31,7 @@ beforeAll(async () => {
 afterAll(() => { sockets.forEach((s) => s.close()); service.kill(); });
 
 test('relay enforces minimum, masks scores, orders replays and gates party voice', async () => {
-  const host = await peer(); host.send({ type: 'room:create' });
+  const host = await peer(); host.send({ type: 'room:create', hostAsAudience: true });
   const { code } = await waitFor(host, 'room:created');
   const one = await peer(); one.send({ type: 'room:join', code, name: 'One' });
   const idOne = (await waitFor(one, 'room:joined')).playerId;
@@ -66,6 +66,27 @@ test('relay enforces minimum, masks scores, orders replays and gates party voice
   const final = one.messages.filter((m) => m.type === 'room:snapshot').at(-1)!;
   expect(final.players.map((p) => p.score)).toEqual([90, 30]);
   expect(final.nextRoundAt).toBeGreaterThan(Date.now());
+});
+
+test('host sings by default while audience can join, rejoin and cannot submit takes', async () => {
+  const host = await peer(); host.send({ type: 'room:create', name: 'Host Singer' });
+  const { code } = await waitFor(host, 'room:created');
+  await expect.poll(() => host.messages.filter((m) => m.type === 'room:snapshot').at(-1)?.players.length).toBe(1);
+  expect(host.messages.filter((m) => m.type === 'room:snapshot').at(-1)?.players[0]?.name).toBe('Host Singer');
+  const viewer = await peer(); viewer.send({ type: 'room:join', code, name: 'Watcher', role: 'audience' });
+  const joined = await waitFor(viewer, 'room:joined');
+  expect(joined.role).toBe('audience');
+  expect(joined.playerId).toBeNull();
+  await expect.poll(() => host.messages.filter((m) => m.type === 'room:snapshot').at(-1)?.audience.length).toBe(1);
+  host.send({ type: 'room:theme', theme: 'theatre' });
+  await expect.poll(() => viewer.messages.filter((m) => m.type === 'room:snapshot').at(-1)?.theme).toBe('theatre');
+  viewer.send({ type: 'room:theme', theme: 'festival' });
+  await expect.poll(() => viewer.messages.filter((m) => m.type === 'room:error').some((m) => m.message.includes('Only the host'))).toBe(true);
+  viewer.send({ type: 'room:ready', ready: true });
+  await expect.poll(() => viewer.messages.filter((m) => m.type === 'room:error').some((m) => m.message.includes('Ready'))).toBe(true);
+  viewer.socket.close();
+  const returned = await peer(); returned.send({ type: 'room:rejoin', code, token: joined.token });
+  expect((await waitFor(returned, 'room:joined')).role).toBe('audience');
 });
 
 

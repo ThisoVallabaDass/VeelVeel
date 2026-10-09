@@ -51,3 +51,8 @@
 - **Filter captured noise without browser speech processing.** A gentle bandpass and calibrated gate preserve vocal timbre; a 200 ms hold avoids chopping between syllables. The earlier activity gate still rejects silence before normalization. Nearby voices remain a limitation.
 - **Separate exact identity from browser loop-capture validation.** Pure DSP keeps the 95+ identical-source requirement, and filtered aligned source scores 90+. The browser fake microphone loops through calibration and listening, so its cut is not aligned; that end-to-end test expects 80+ plus the correct game flow.
 - **Strengthen short-take penalties and adapt pitch weight.** Attempts below 65% of source duration receive an extra length penalty; weak pitch tracking shifts weight to rhythm and energy instead of a guessed melody score.
+
+- **Make the host a singer by default and keep screen-only hosting explicit.** Most hosts want to play; an audience-only option retains a way to run the room without a mic.
+- **Keep audience separate from singer seats and scores.** Viewers can join at any point and reconnect, while ready, recording and scoring remain singer-only. Limit active audience identities to 20 to bound relay memory and bandwidth.
+- **Make the venue a direct two-button choice.** Stage and Theatre should be visible and understandable without opening a hidden menu; the host's room choice is sent to all clients.
+- **Separate chat listening from speaking.** Muting incoming party chat should not silently disable the user's own mic. Voice chat still pauses during reference playback and recording.

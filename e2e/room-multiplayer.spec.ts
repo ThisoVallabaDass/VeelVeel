@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 import type { Page, Browser } from '@playwright/test';
 
-async function room(browser: Browser) {
+async function room(browser: Browser, hostAsAudience = true) {
   const host = await browser.newPage({ ignoreHTTPSErrors: true });
   await host.goto('/host?e2e=1');
+  if (hostAsAudience) await host.getByLabel('Host as audience only').check();
   await host.getByRole('button', { name: /CREATE ROOM/ }).click();
   const code = (await host.locator('.room-code-bar strong').textContent())!.trim();
   return { host, code };
@@ -12,7 +13,7 @@ async function singer(browser: Browser, code: string, name: string) {
   const page = await browser.newPage({ ignoreHTTPSErrors: true, permissions: ['microphone'], viewport: { width: 390, height: 844 } });
   await page.goto(`/j/${code}?e2e=1`);
   await page.getByPlaceholder('Your name').fill(name);
-  await page.getByRole('button', { name: /JOIN ROOM/ }).click();
+  await page.getByRole('button', { name: /JOIN AS SINGER/ }).click();
   await page.getByRole('button', { name: /CONNECT MICROPHONE/ }).click();
   await expect(page.getByRole('button', { name: /MIC CONNECTED/ })).toBeVisible();
   await page.getByRole('button', { name: /I AM READY/ }).click();
@@ -64,8 +65,8 @@ test('two singers automatically listen, record, hear each take, then see scores'
 });
 
 test('host singer needs a friend and five seats is the maximum', async ({ browser }) => {
-  const { host, code } = await room(browser);
-  await host.getByRole('button', { name: /JOIN AS SINGER/ }).click();
+  const { host, code } = await room(browser, false);
+  await expect(host.getByText('Host · HOST')).toBeVisible();
   await host.getByRole('button', { name: /CONNECT MICROPHONE/ }).click();
   await host.getByRole('button', { name: /I AM READY/ }).click();
   await expect(host.getByRole('button', { name: /START THE SHOW/ })).toBeDisabled();
@@ -75,13 +76,34 @@ test('host singer needs a friend and five seats is the maximum', async ({ browse
   const extra = await browser.newPage({ ignoreHTTPSErrors: true });
   await extra.goto(`/j/${code}?e2e=1`);
   await extra.getByPlaceholder('Your name').fill('Sixth singer');
-  await extra.getByRole('button', { name: /JOIN ROOM/ }).click();
+  await extra.getByRole('button', { name: /JOIN AS SINGER/ }).click();
   await expect(extra.getByRole('alert')).toContainText('five singers');
+  await extra.getByLabel('Audience').check();
+  await extra.getByRole('button', { name: /JOIN AS AUDIENCE/ }).click();
+  await expect(extra.getByText('YOU ARE IN THE AUDIENCE')).toBeVisible();
   await host.getByRole('button', { name: /START THE SHOW/ }).click();
   await expect(host.getByText('● REC · MICROPHONE ON')).toBeVisible({ timeout: 25000 });
   await expect(host.getByText('THE SCORES.')).toBeVisible({ timeout: 65000 });
   await expect(host.locator('.room-judges')).toHaveCount(5);
   await Promise.all([host.close(), extra.close(), ...guests.map((p) => p.close())]);
+});
+
+test('mobile invite lets an audience member watch without microphone or singer seat', async ({ browser }) => {
+  const { host, code } = await room(browser, false);
+  const mobile = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const viewer = await mobile.newPage();
+  await viewer.goto(`/j/${code}?e2e=1`);
+  await viewer.getByPlaceholder('Your name').fill('Fan');
+  await viewer.getByLabel('Audience').check();
+  await viewer.getByRole('button', { name: /JOIN AS AUDIENCE/ }).click();
+  await expect(viewer.getByText('YOU ARE IN THE AUDIENCE')).toBeVisible();
+  await expect(viewer.getByRole('button', { name: /I AM READY/ })).toHaveCount(0);
+  await expect(viewer.locator('.room-code-bar')).toContainText('1 WATCHING');
+  await expect.poll(() => viewer.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await viewer.screenshot({ path: '.cache/mobile-audience.png', fullPage: true });
+  await viewer.reload();
+  await expect(viewer.getByText('YOU ARE IN THE AUDIENCE')).toBeVisible();
+  await Promise.all([host.close(), mobile.close()]);
 });
 
 test('expired host room can be replaced with a new room', async ({ browser }) => {

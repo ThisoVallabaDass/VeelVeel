@@ -1,13 +1,14 @@
 # Veel Veel build status
 
-Updated 6 October 2026.
+Updated 9 October 2026.
 
 ## Playable now
 
 - Local Mic Drop with one human and four bots, 5/7/10/15 rounds, microphone setup, DSP scoring, Golden Buzzer, starter Chaos Cards, roast playback and podium.
-- Online room Mic Drop for 2–5 ready singers, with an optional singing host. Host/Join controls are large and at the top. Share the room URL or QR code.
+- Online room Mic Drop for 2–5 ready singers. The host joins as a singer by default, with an audience-only hosting option. Up to 20 audience members can watch and listen without taking singer seats or microphone permission. Audience members can join after a set starts and reconnect with their room token. Share the room URL or QR code.
 - Automatic reference loading, shared listening, three-second preparation, and simultaneous microphone recording. Each take is played to every room member in sequence; the score follows that take. A shared 6.5-second intermission automatically starts the next round and opens the final podium after the chosen 5, 7, 10 or 15 rounds. The host can skip the intermission. Missing submissions have a bounded timeout.
-- Opt-in voice chat with Always on and Push to talk. Listening/recording mutes voice chat at both client and server; it returns for take playback. Keyboard and pointer release are handled.
+- Opt-in voice chat with Always on and Push to talk for hosts, singers and audience. Incoming chat can be muted separately from outgoing voice. Listening/recording pauses voice chat at both client and server; it returns for take playback. Keyboard, pointer, focus and page-visibility release are handled.
+- The home screen shows Stage and Theatre as two direct venue choices. The host can change the room venue; all participants receive the choice. The join flow and lobby fit a touch-sized phone viewport. Where supported, the screen wake lock keeps the round visible.
 - The stage appears on host and player screens. Articulated singers walk/sway/sing, replay mouths follow playback amplitude, cheering crowds stand and wave, high scores trigger confetti, and low scores trigger flying tomatoes. Reduced-motion preferences are respected.
 - 590 indexed clips in this workspace; 452 meet default duration/flag eligibility. The existing 534 Tamil clips are preserved. 56 new labelled vocal excerpts were imported (55 eligible; the silent “You are my sunshine” excerpt is excluded): 45 entries in the English meme category and 11 Tamil entries. The English meme category includes some internationally circulated, non-English vocals. The room default selects from curated vocals, with English/Tamil filters and no repeats within a setlist.
 - Sources include the owner's two playlists, sixteen vocal cuts from the timestamped compilation, the requested Tamil short/template, and a related “What the dog doin?” clip found through search. Mechanical/startup/glass/pipe effects were excluded. Metadata, source URLs and cut times live in `scripts/sound-sources.json`; `python scripts/import-sounds.py` reproduces the ignored media.

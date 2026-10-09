@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ROOM_VERSION = 6;
+export const ROOM_VERSION = 7;
 export const roomCodeSchema = z.string().regex(/^[ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/);
 const performanceMode = z.enum(['together', 'turns']);
 const judgeScores = z.object({
@@ -20,6 +20,7 @@ export const roomPlayerSchema = z.object({
   roundScore: z.number().int().min(0).max(100).nullable(),
   judges: judgeScores.nullable(),
 });
+const roomAudienceSchema = z.object({ id: z.string().uuid(), name: z.string().trim().min(1).max(24), connected: z.boolean() });
 const token = z.string().min(24).max(128);
 const roundNumber = z.number().int().min(0).max(14);
 const pcm16 = z.string().min(4).max(470_400).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/);
@@ -35,11 +36,12 @@ const clip = z.object({
 export const clientRoomMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('round:loaded'), round: roundNumber }),
   z.object({ type: z.literal('voice:audio'), pcm16: voicePcm }),
-  z.object({ type: z.literal('room:create') }),
-  z.object({ type: z.literal('room:join'), code: roomCodeSchema, name: z.string().trim().min(1).max(24) }),
+  z.object({ type: z.literal('room:create'), name: z.string().trim().min(1).max(24).optional(), theme: z.enum(['festival', 'theatre']).optional(), hostAsAudience: z.boolean().optional() }),
+  z.object({ type: z.literal('room:join'), code: roomCodeSchema, name: z.string().trim().min(1).max(24), role: z.enum(['singer', 'audience']).optional() }),
   z.object({ type: z.literal('room:host-player'), name: z.string().trim().min(1).max(24) }),
   z.object({ type: z.literal('room:rejoin'), code: roomCodeSchema, token }),
   z.object({ type: z.literal('room:ready'), ready: z.boolean() }),
+  z.object({ type: z.literal('room:theme'), theme: z.enum(['festival', 'theatre']) }),
   z.object({ type: z.literal('room:leave') }),
   z.object({ type: z.literal('round:begin'), round: roundNumber, rounds: z.union([z.literal(5), z.literal(7), z.literal(10), z.literal(15)]), mode: performanceMode, clip }),
   z.object({ type: z.literal('round:reveal'), round: roundNumber }),
@@ -53,8 +55,8 @@ export type ClientRoomMessage = z.infer<typeof clientRoomMessageSchema>;
 
 export const serverRoomMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('room:created'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, token }),
-  z.object({ type: z.literal('room:joined'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, token, playerId: z.string().uuid() }),
-  z.object({ type: z.literal('room:snapshot'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, players: z.array(roomPlayerSchema).max(5), hostConnected: z.boolean(), round: roundNumber.nullable(), rounds: z.union([z.literal(5), z.literal(7), z.literal(10), z.literal(15)]), mode: performanceMode, activePlayerId: z.string().uuid().nullable(), clip: clip.nullable(), nextRoundAt: z.number().nullable(), phase: z.enum(['lobby', 'listen', 'perform', 'reveal', 'results']) }),
+  z.object({ type: z.literal('room:joined'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, token, role: z.enum(['singer', 'audience']), playerId: z.string().uuid().nullable() }),
+  z.object({ type: z.literal('room:snapshot'), version: z.literal(ROOM_VERSION), code: roomCodeSchema, players: z.array(roomPlayerSchema).max(5), audience: z.array(roomAudienceSchema).max(20), theme: z.enum(['festival', 'theatre']), hostConnected: z.boolean(), round: roundNumber.nullable(), rounds: z.union([z.literal(5), z.literal(7), z.literal(10), z.literal(15)]), mode: performanceMode, activePlayerId: z.string().uuid().nullable(), clip: clip.nullable(), nextRoundAt: z.number().nullable(), phase: z.enum(['lobby', 'listen', 'perform', 'reveal', 'results']) }),
   z.object({ type: z.literal('round:go'), round: roundNumber, delayMs: z.number(), durationSeconds: z.number() }),
   z.object({ type: z.literal('take:replay'), round: roundNumber, playerId: z.string().uuid(), pcm16 }),
   z.object({ type: z.literal('voice:audio'), playerId: z.string(), pcm16: voicePcm }),
